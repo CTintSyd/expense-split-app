@@ -47,6 +47,18 @@ desert:['Desert',`<defs><linearGradient id="sg-desert" x1="0" y1="0" x2="0" y2="
 country:['Countryside',`<defs><linearGradient id="sg-country" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8fcdf2"/><stop offset="1" stop-color="#e7f6ff"/></linearGradient></defs><rect width="400" height="220" fill="url(#sg-country)"/><g fill="#fff" opacity=".9"><ellipse cx="90" cy="46" rx="30" ry="10"/><ellipse cx="110" cy="40" rx="20" ry="10"/><ellipse cx="290" cy="60" rx="34" ry="10"/></g><path d="M0 130 Q100 90 200 124 T400 110 V220 H0Z" fill="#9ccc72"/><path d="M0 160 Q120 120 250 156 T400 146 V220 H0Z" fill="#6fae4e"/><g stroke="#5c9a3f" stroke-width="3" opacity=".6"><path d="M150 168 Q220 158 300 172"/><path d="M140 182 Q220 172 310 186"/><path d="M130 196 Q220 186 320 200"/></g><path d="M0 196 Q140 176 260 196 T400 190 V220 H0Z" fill="#4c8b39"/><g><rect x="318" y="118" width="4" height="16" fill="#6e4b2a"/><circle cx="320" cy="112" r="12" fill="#3d7d33"/><rect x="58" y="138" width="4" height="14" fill="#6e4b2a"/><circle cx="60" cy="132" r="10" fill="#3d7d33"/></g><path d="M212 116 h22 v14 h-22Z" fill="#f3efe6"/><path d="M208 117 L223 106 L238 117Z" fill="#b5502c"/>`],
 tropic:['Tropical sunset',`<defs><linearGradient id="sg-tropic" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7a4ea3"/><stop offset=".55" stop-color="#ff8a66"/><stop offset="1" stop-color="#ffd08a"/></linearGradient></defs><rect width="400" height="220" fill="url(#sg-tropic)"/><circle cx="200" cy="140" r="38" fill="#ffe3a3"/><path d="M0 140 H400 V220 H0Z" fill="#2d5b8e"/><g stroke="#ffcf8f" stroke-width="3" stroke-linecap="round" opacity=".8"><path d="M170 152 h60"/><path d="M180 166 h40"/><path d="M190 180 h20"/></g><path d="M250 146 Q300 120 360 140 Q340 150 250 146Z" fill="#3a2440"/><path d="M318 140 Q314 112 326 86" fill="none" stroke="#3a2440" stroke-width="4" stroke-linecap="round"/><g fill="#3a2440"><path d="M326 86 Q306 78 290 90 Q308 84 326 88Z"/><path d="M326 86 Q346 76 362 88 Q344 82 326 88Z"/><path d="M326 86 Q318 66 302 62 Q316 74 324 88Z"/><path d="M326 86 Q336 66 352 64 Q338 76 328 88Z"/></g>`]};
 const scnSvg=(k,cls)=>SCN[k]?`<svg class="${cls||'covsvg'}" viewBox="0 0 400 220" preserveAspectRatio="xMidYMax slice" aria-hidden="true">${SCN[k][1]}</svg>`:'';
+// ---- Last active date in the trip list ----
+var LAST=(()=>{try{return JSON.parse(localStorage.getItem('es-last')||'{}')||{}}catch(e){return {}}})(),LASTQ={};
+const saveLast=()=>{try{localStorage.setItem('es-last',JSON.stringify(LAST))}catch(e){}};
+function lastLabel(ms){if(!ms)return '';const d=new Date(ms),n=new Date(),day=x=>new Date(x.getFullYear(),x.getMonth(),x.getDate()).getTime(),diff=Math.round((day(n)-day(d))/864e5);
+  if(diff<=0)return 'Active today';if(diff===1)return 'Active yesterday';if(diff<7)return `Active ${diff} days ago`;
+  return 'Active '+d.toLocaleDateString('en-AU',{day:'numeric',month:'short',...(d.getFullYear()!==n.getFullYear()?{year:'numeric'}:{})})}
+function lastFor(id,fb){if(!LASTQ[id]){LASTQ[id]=1;lastFetch(id).then(ms=>{if(ms>(LAST[id]||0)){LAST[id]=ms;saveLast();if(!S.tid)render()}}).catch(()=>{})}return Math.max(LAST[id]||0,num(fb))}
+const lastHtml=(id,fb)=>{const l=lastLabel(lastFor(id,fb));return l?`<small class="last">${esc(l)}</small>`:''};
+function noteLast(){if(!S.tid)return;const m=Math.max(0,...S.exp.map(e=>Math.max(num(e.createdAt),num(e.updatedAt))),...(S.log||[]).map(l=>num(l.t)));if(m>(LAST[S.tid]||0)){LAST[S.tid]=m;saveLast()}}
+function latestIn(path,field){return new Promise(res=>{let best=0,done=false,un=null;const fin=()=>{if(done)return;done=true;res(best);setTimeout(()=>un&&un(),0)};
+  try{un=onSnapshot(query(collection(S.fs,path),orderBy(field,'desc'),limit(1)),{includeMetadataChanges:true},s=>{const d=s.docs[0]?.data();if(d)best=Math.max(best,num(d[field]),num(d.updatedAt));if(!s.metadata.fromCache)fin()},()=>fin())}catch(e){fin()}setTimeout(fin,6000)})}
+async function lastFetch(id){const [a,b]=await Promise.all([latestIn(`trips/${id}/log`,'t'),latestIn(`trips/${id}/expenses`,'createdAt')]);return Math.max(a,b)}
 // ---- Trip colour and cover photo ----
 const TCOL=[['#2f6fde','Blue'],['#e0673a','Orange'],['#2e9d6a','Green'],['#8a5cd1','Purple'],['#d4477a','Pink'],['#14919f','Teal'],['#c48a1c','Gold'],['#47546e','Slate']];
 const tColor=(t,id)=>{if(/^#[0-9a-f]{6}$/i.test(t?.color||''))return t.color;let h=0;for(const c of String(id||''))h=(h*31+c.charCodeAt(0))>>>0;return TCOL[h%TCOL.length][0]};
@@ -56,7 +68,7 @@ function coverFor(tid,t){if(!t?.cover)return '';const c=COV[tid];if(c&&c.at===t.
     covGet(tid).then(d=>{COV[tid]={at:want,data:d||''};if(S.tid===tid){renderTop();if(S.tab==='trip')render()}}).catch(()=>{COV[tid]={at:want,data:''}})}
   return COV[tid].data}
 const tileFor=(id,t)=>`<span class="tico" style="--tc:${tColor(t,id)}" aria-hidden="true">${t?.thumb?`<img src="${esc(t.thumb)}" alt="">`:SCN[t?.scene]?scnSvg(t.scene,'tsvg'):esc((String(t?.name||'?').trim()[0]||'?').toUpperCase())}</span>`;
-function paintTop(el,back){const c=tColor(S.trip,S.tid),cv=coverFor(S.tid,S.trip),sc=!cv&&SCN[S.trip.scene]?S.trip.scene:'';el.className='top tm'+(cv||sc?' hasimg':'');el.style.setProperty('--tc',c);
+function paintTop(el,back){noteLast();const c=tColor(S.trip,S.tid),cv=coverFor(S.tid,S.trip),sc=!cv&&SCN[S.trip.scene]?S.trip.scene:'';el.className='top tm'+(cv||sc?' hasimg':'');el.style.setProperty('--tc',c);
   el.innerHTML=`${cv?`<img class="covimg" src="${cv}" alt="">`:sc?scnSvg(sc):''}<div class="topin"><a class="back" href="${back}">All trips</a><h1>${esc(S.trip.name)}</h1></div>`}
 function lookView(){const t=S.trip,c=tColor(t,S.tid),cv=coverFor(S.tid,t),w=S.canWrite!==false,sc=!cv&&SCN[t.scene]?t.scene:'';
   return `<div class="sec"><h2>Name, cover and colour</h2><div class="card look">${w?`<form class="tnrow" id="tn-form"><input id="tn-name" value="${esc(t.name)}" maxlength="60" aria-label="Trip or group name" required><button class="btn small">Save name</button></form>`:''}<div class="lkprev${cv||sc?' pic':''}" style="--tc:${c}">${cv?`<img src="${cv}" alt="Cover photo">`:sc?scnSvg(sc,'lksvg'):''}<b>${esc(t.name)}</b></div>
@@ -126,7 +138,7 @@ function render(){renderTop();syncBadge();const a=$('#app'),fab=$('#fab');fab.hi
 
 const pRow=first=>`<li><input name="members" maxlength="30" placeholder="${first?'Your name':'Name'}" autocomplete="off" aria-label="${first?'Your name':'Person'}"><button type="button" class="x" data-act="prm" aria-label="Remove">×</button></li>`;
 function addPerson(after){const ul=$('#plist');if(!ul)return;const t=document.createElement('template');t.innerHTML=pRow(false);const li=t.content.firstChild;after?after.after(li):ul.append(li);li.querySelector('input').focus()}
-function homeView(){const list=Object.entries(S.recent).sort((a,b)=>(b[1].at||0)-(a[1].at||0)).map(([id,t])=>`<a class="trip" href="?trip=${esc(id)}">${tileFor(id,t)}<b>${esc(t.name||'Trip')}</b><span>${esc(t.people||'')}</span><span class="cur">${esc(t.home||'')}</span></a>`).join('');
+function homeView(){const list=Object.entries(S.recent).sort((a,b)=>(b[1].at||0)-(a[1].at||0)).map(([id,t])=>`<a class="trip" href="?trip=${esc(id)}">${tileFor(id,t)}<b>${esc(t.name||'Trip')}</b><span>${esc(t.people||'')}</span><span class="cur">${esc(t.home||'')}${lastHtml(id,t.created)}</span></a>`).join('');
   return `<section class="band"><h2>Your trips, groups and expenses</h2>${list||'<p class="muted">Trips, groups and expenses you open on this phone show up here.</p>'}
     <form id="join" class="inline" style="margin-top:12px"><input name="code" placeholder="Paste a trip link" aria-label="Trip link" autocomplete="off"><button class="btn">Open</button></form></section>
   <section class="band"><h2>Start a trip, group or expense</h2><form id="newtrip" class="stackf">
@@ -455,7 +467,7 @@ document.addEventListener('submit',ev=>{ev.preventDefault();const f=ev.target,fd
     if(!name||!ms.length)return toast('Add a trip name and at least one person');
     const tid=rid(22),hc=String(fd.get('home')||'AUD');
     put('trips/'+tid,{name:name.slice(0,60),home:hc,members:ms,rates:{},createdAt:Date.now()});
-    S.me[tid]=ms[0].id;store.set('rts-me',S.me);S.recent[tid]={name,home:hc,people:ms.map(m=>m.name).join(', '),at:Date.now()};store.set('rts-trips',S.recent);
+    S.me[tid]=ms[0].id;store.set('rts-me',S.me);S.recent[tid]={name,home:hc,people:ms.map(m=>m.name).join(', '),created:Date.now(),at:Date.now()};store.set('rts-trips',S.recent);
     history.pushState(null,'','?trip='+tid);route();S.tab='trip';render();return}
   if(f.id==='addmem'){const n=String(fd.get('n')||'').trim().slice(0,30);if(!n)return;if(members().some(m=>m.name.toLowerCase()===n.toLowerCase()))return toast('Already on the trip');tripSave({members:[...members(),{id:rid(8),name:n}]});logAct(`added ${n} to the trip`);toast(n+' added')}
   if(f.id==='addrate'){const c=String(fd.get('c')||''),r=num(fd.get('r'));if(!c||!(r>0))return toast('Enter a rate above 0');tripSave({rates:{...(S.trip.rates||{}),[c]:r}});toast(c+' added')}
@@ -469,7 +481,7 @@ function listen(key,ref,cb){unsubs.push(onSnapshot(ref,{includeMetadataChanges:t
 function openTrip(tid){if(S.tid===tid)return;closeTrip();closeSheet();S.tid=tid;S.tripMissing=false;S.stale=false;S.tab='exp';S.log=[];render();setTimeout(()=>subLog(tid),0);
   const t0=setTimeout(()=>{if(!S.trip){S.stale=true;render()}},10000);
   listen('trip',doc(S.fs,'trips/'+tid),s=>{if(!s.exists()){if(!s.metadata.fromCache){clearTimeout(t0);S.tripMissing=true}S.trip=null}
-    else{clearTimeout(t0);S.stale=false;S.tripRaw=s.data();S.trip=S.tripRaw;S.recent[tid]={name:S.trip.name,home:S.trip.home,people:members().map(m=>m.name).join(', '),color:S.trip.color||'',thumb:S.trip.thumb||'',scene:S.trip.scene||'',at:Date.now()};store.set('rts-trips',S.recent)}
+    else{clearTimeout(t0);S.stale=false;S.tripRaw=s.data();S.trip=S.tripRaw;S.recent[tid]={name:S.trip.name,home:S.trip.home,people:members().map(m=>m.name).join(', '),color:S.trip.color||'',thumb:S.trip.thumb||'',scene:S.trip.scene||'',created:S.trip.createdAt||0,at:Date.now()};store.set('rts-trips',S.recent)}
     render();if(F)hints()});
   listen('exp',collection(S.fs,`trips/${tid}/expenses`),s=>{S.exp=s.docs.map(d=>({...d.data(),id:d.id}));render()});
   listen('pay',collection(S.fs,`trips/${tid}/payments`),s=>{S.pay=s.docs.map(d=>({...d.data(),id:d.id}));render()})}
