@@ -29,6 +29,33 @@ const members=()=>S.trip?.members||[];
 const mname=id=>members().find(m=>m.id===id)?.name||'Someone';
 const home=()=>S.trip?.home||'AUD';
 const fc=c=>money(c/100,home(),true);
+// ---- Trip colour and cover photo ----
+const TCOL=[['#2f6fde','Blue'],['#e0673a','Orange'],['#2e9d6a','Green'],['#8a5cd1','Purple'],['#d4477a','Pink'],['#14919f','Teal'],['#c48a1c','Gold'],['#47546e','Slate']];
+const tColor=(t,id)=>{if(/^#[0-9a-f]{6}$/i.test(t?.color||''))return t.color;let h=0;for(const c of String(id||''))h=(h*31+c.charCodeAt(0))>>>0;return TCOL[h%TCOL.length][0]};
+var COV={};
+function coverFor(tid,t){if(!t?.cover)return '';const c=COV[tid];if(c&&c.at===t.cover)return c.data;
+  if(!c||!c.loading||c.want!==t.cover){const want=t.cover;COV[tid]={at:c?.at,data:c?.data||'',loading:true,want};
+    covGet(tid).then(d=>{COV[tid]={at:want,data:d||''};if(S.tid===tid){renderTop();if(S.tab==='trip')render()}}).catch(()=>{COV[tid]={at:want,data:''}})}
+  return COV[tid].data}
+const tileFor=(id,t)=>`<span class="tico" style="--tc:${tColor(t,id)}" aria-hidden="true">${t?.thumb?`<img src="${esc(t.thumb)}" alt="">`:esc((String(t?.name||'?').trim()[0]||'?').toUpperCase())}</span>`;
+function paintTop(el,back){const c=tColor(S.trip,S.tid),cv=coverFor(S.tid,S.trip);el.className='top tm'+(cv?' hasimg':'');el.style.setProperty('--tc',c);
+  el.innerHTML=`${cv?`<img class="covimg" src="${cv}" alt="">`:''}<div class="topin"><a class="back" href="${back}">All trips</a><h1>${esc(S.trip.name)}</h1></div>`}
+function lookView(){const t=S.trip,c=tColor(t,S.tid),cv=coverFor(S.tid,t),w=S.canWrite!==false;
+  return `<div class="sec"><h2>Cover and colour</h2><div class="card look"><div class="lkprev" style="--tc:${c}">${cv?`<img src="${cv}" alt="Cover photo">`:''}<b>${esc(t.name)}</b></div>
+    ${w?`<div class="lkrow"><label class="btn small file" id="cov-btn">${t.cover?'Change photo':'Add a cover photo'}<input type="file" accept="image/*" id="cov-file"></label>${t.cover?'<button type="button" class="btn small danger" data-act="cov-rm">Remove photo</button>':''}</div>
+    <div class="swatches" role="radiogroup" aria-label="Trip colour">${TCOL.map(([h,n])=>`<button type="button" class="sw${h===c?' on':''}" style="--sw:${h}" data-act="cov-col" data-c="${h}" role="radio" aria-checked="${h===c}" aria-label="${n}"></button>`).join('')}</div>
+    <p class="hint">The colour shows behind the trip name when there's no photo.</p>`:''}</div></div>`}
+document.addEventListener('click',async ev=>{const b=ev.target.closest?.('[data-act]');if(!b||!S.trip)return;const a=b.dataset.act;
+  if(a==='cov-col'){await tripSave({color:b.dataset.c});render()}
+  else if(a==='cov-rm'){const tid=S.tid;try{await covDel(tid)}catch(e){}COV[tid]={at:0,data:''};await tripSave({cover:0,thumb:''});toast('Cover photo removed');render()}});
+document.addEventListener('change',async ev=>{const t=ev.target;if(t.id!=='cov-file'||!t.files?.[0]||!S.trip)return;const f=t.files[0],tid=S.tid,lb=$('#cov-btn');t.value='';
+  if(lb)lb.firstChild.textContent='Adding photo…';
+  try{let b=await shrink(f,1600,.75);if(b.size>520000)b=await shrink(f,1200,.65);if(b.size>520000)b=await shrink(f,900,.55);const data=await toData(b),thumb=await toData(await shrink(f,160,.7));
+    if(data.length>900000)throw new Error('the photo is too large');await covSet(tid,data);const at=Date.now();COV[tid]={at,data};await tripSave({cover:at,thumb});toast('Cover photo added');render()}
+  catch(e){console.error(e);toast("Couldn't use that photo: "+(e?.message||'try another'));render()}});
+const covGet=async tid=>{const s=await getDoc(doc(S.fs,`trips/${tid}/receipts/cover`));return s.exists()?s.data().data:''};
+const covSet=async(tid,data)=>{put(`trips/${tid}/receipts/cover`,{data})};
+const covDel=async tid=>{del(`trips/${tid}/receipts/cover`)};
 const eCents=e=>Math.round(num(e.amount)*(e.cur===home()?1:num(e.rate))*100);
 const weights=e=>{const p=e.split?.parts||{},w={};for(const k in p){const v=num(p[k]);if(v>0)w[k]=v}return w};
 function alloc(total,w){const ids=Object.keys(w).filter(k=>w[k]>0),sum=ids.reduce((a,k)=>a+w[k],0),out={};if(!sum||total<=0)return out;let used=0;const rem=[];
@@ -61,9 +88,9 @@ function syncBadge(){const p=Object.values(S.pending).some(Boolean),b=$('#sync')
 function renderTop(){const t=$('#top');
   if(S.tid&&S.trip){const me=S.me[S.tid],{net,share,spent}=calc(),n=me?net[me]||0:0;
     const lab=!me?'Trip total':n>0?"You're owed":n<0?'You owe':"You're all square";
-    t.className='top tm';t.innerHTML=`<div class="topin"><a class="back" href="./">All trips</a><h1>${esc(S.trip.name)}</h1></div>`;
+    paintTop(t,'./');
     $('#hcard').innerHTML=`<p class="bal1"><span>${lab}</span><b class="big ${me&&n>0?'pos':me&&n<0?'neg':''}">${fc(me?Math.abs(n):spent)}</b></p><p class="bal2">${me?`Your share is ${fc(share[me]||0)} of ${fc(spent)} spent`:`${fc(spent)} spent`} across ${S.exp.length} expense${S.exp.length===1?'':'s'}.</p>`;$('#hcard').hidden=false;
-  }else{t.className='top';t.innerHTML=`<div class="topin"><h1>Expenses Split</h1><p class="sub">Everyone adds what they paid, and it works out who owes whom.</p></div>`;$('#hcard').hidden=true}}
+  }else{t.className='top';t.style.removeProperty('--tc');t.innerHTML=`<div class="topin"><h1>Expenses Split</h1><p class="sub">Everyone adds what they paid, and it works out who owes whom.</p></div>`;$('#hcard').hidden=true}}
 
 function render(){renderTop();syncBadge();const a=$('#app'),fab=$('#fab');fab.hidden=true;
   if(S.setup){a.innerHTML=`<section class="band"><div class="empty"><h2>Almost ready</h2><p class="muted">Paste your Firebase config into <b>firebase-config.js</b>, then upload the folder again.</p></div></section>`;return}
@@ -78,7 +105,7 @@ function render(){renderTop();syncBadge();const a=$('#app'),fab=$('#fab');fab.hi
 
 const pRow=first=>`<li><input name="members" maxlength="30" placeholder="${first?'Your name':'Name'}" autocomplete="off" aria-label="${first?'Your name':'Person'}"><button type="button" class="x" data-act="prm" aria-label="Remove">×</button></li>`;
 function addPerson(after){const ul=$('#plist');if(!ul)return;const t=document.createElement('template');t.innerHTML=pRow(false);const li=t.content.firstChild;after?after.after(li):ul.append(li);li.querySelector('input').focus()}
-function homeView(){const list=Object.entries(S.recent).sort((a,b)=>(b[1].at||0)-(a[1].at||0)).map(([id,t])=>`<a class="trip" href="?trip=${esc(id)}"><span class="tico" aria-hidden="true"></span><b>${esc(t.name||'Trip')}</b><span>${esc(t.people||'')}</span><span class="cur">${esc(t.home||'')}</span></a>`).join('');
+function homeView(){const list=Object.entries(S.recent).sort((a,b)=>(b[1].at||0)-(a[1].at||0)).map(([id,t])=>`<a class="trip" href="?trip=${esc(id)}">${tileFor(id,t)}<b>${esc(t.name||'Trip')}</b><span>${esc(t.people||'')}</span><span class="cur">${esc(t.home||'')}</span></a>`).join('');
   return `<section class="band"><h2>Your trips, groups and expenses</h2>${list||'<p class="muted">Trips, groups and expenses you open on this phone show up here.</p>'}
     <form id="join" class="inline" style="margin-top:12px"><input name="code" placeholder="Paste a trip link" aria-label="Trip link" autocomplete="off"><button class="btn">Open</button></form></section>
   <section class="band"><h2>Start a trip, group or expense</h2><form id="newtrip" class="stackf">
@@ -107,7 +134,7 @@ function settleView(){const {net}=calc(),me=S.me[S.tid],max=Math.max(1,...Object
 
 function usedBy(id){return S.exp.some(e=>e.paidBy===id||weights(e)[id])||S.pay.some(p=>p.from===id||p.to===id)}
 function tripView(){const t=S.trip,rates=t.rates||{};
-  return `<section class="band"><div class="sec"><h2>Invite friends</h2><p class="hint" style="margin:-6px 0 0">Anyone with this link can see and add to the trip. No account needed, so only share it with the group.</p>
+  return `<section class="band">${lookView()}<div class="sec"><h2>Invite friends</h2><p class="hint" style="margin:-6px 0 0">Anyone with this link can see and add to the trip. No account needed, so only share it with the group.</p>
     <div class="linkbox"><input id="tlink" readonly value="${esc(tripUrl(S.tid))}" aria-label="Trip link"><button type="button" class="btn teal" data-act="share">${navigator.share?'Share':'Copy'}</button></div>
     <div class="note" style="margin-top:12px"><b>Use it like an app:</b> open the link, then on iPhone tap Share → Add to Home Screen. On Android tap ⋮ → Add to Home screen.</div></div>
   <div class="sec"><h2>People</h2><p class="hint" style="margin:-6px 0 10px">Add PayID or bank details so they show in Settle up. Everyone on the trip can see them.</p><div class="card">${members().map(m=>`<div class="mrow">${av(m.id,'sm')}<input id="mn-${esc(m.id)}" value="${esc(m.name)}" maxlength="30" aria-label="Name"><button type="button" class="btn small" data-act="ren" data-id="${esc(m.id)}">Save</button>${usedBy(m.id)?'<span></span>':`<button type="button" class="btn small danger" data-act="rmm" data-id="${esc(m.id)}">Remove</button>`}</div>${S.canWrite!==false?`<div class="ppay"><input id="pp-${esc(m.id)}" value="${esc(m.pay||'')}" maxlength="80" placeholder="PayID or BSB + account (optional)" aria-label="${esc(m.name)} payment details"><button type="button" class="btn small" data-act="savepay" data-id="${esc(m.id)}">Save</button></div>`:(m.pay?`<p class="hint ppay">${esc(m.pay)}</p>`:'')}`).join('')}</div>
@@ -421,7 +448,7 @@ function listen(key,ref,cb){unsubs.push(onSnapshot(ref,{includeMetadataChanges:t
 function openTrip(tid){if(S.tid===tid)return;closeTrip();closeSheet();S.tid=tid;S.tripMissing=false;S.stale=false;S.tab='exp';S.log=[];render();setTimeout(()=>subLog(tid),0);
   const t0=setTimeout(()=>{if(!S.trip){S.stale=true;render()}},10000);
   listen('trip',doc(S.fs,'trips/'+tid),s=>{if(!s.exists()){if(!s.metadata.fromCache){clearTimeout(t0);S.tripMissing=true}S.trip=null}
-    else{clearTimeout(t0);S.stale=false;S.tripRaw=s.data();S.trip=S.tripRaw;S.recent[tid]={name:S.trip.name,home:S.trip.home,people:members().map(m=>m.name).join(', '),at:Date.now()};store.set('rts-trips',S.recent)}
+    else{clearTimeout(t0);S.stale=false;S.tripRaw=s.data();S.trip=S.tripRaw;S.recent[tid]={name:S.trip.name,home:S.trip.home,people:members().map(m=>m.name).join(', '),color:S.trip.color||'',thumb:S.trip.thumb||'',at:Date.now()};store.set('rts-trips',S.recent)}
     render();if(F)hints()});
   listen('exp',collection(S.fs,`trips/${tid}/expenses`),s=>{S.exp=s.docs.map(d=>({...d.data(),id:d.id}));render()});
   listen('pay',collection(S.fs,`trips/${tid}/payments`),s=>{S.pay=s.docs.map(d=>({...d.data(),id:d.id}));render()})}
@@ -569,3 +596,4 @@ async function imReadPhoto(file){if(!txModel){const {getAI,getGenerativeModel,Go
     txModel=getGenerativeModel(getAI(S.app,{backend:new GoogleAIBackend()}),{model:AI_MODEL,generationConfig:{responseMimeType:'application/json',responseSchema:schema}})}
   const b=await shrink(file,2400,.85),data=(await toData(b)).split(',')[1];
   const res=await txModel.generateContent([IM_PROMPT(),{inlineData:{data,mimeType:'image/jpeg'}}]);return imPhotoNorm(JSON.parse(res.response.text()))}
+

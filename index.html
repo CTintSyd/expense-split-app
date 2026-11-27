@@ -594,6 +594,32 @@ input,select,textarea{border-width:1px;border-radius:10px;font-size:17px}
 .trip b,.trip span:not(.tico):not(.cur){grid-column:1!important}
 .trip .cur{grid-column:2!important}
 .trip span:not(.tico):not(.cur){font-size:15px}
+/* Trip colour and cover photo */
+.top.tm{background:var(--tc,#47546e);color:#fff;position:relative;overflow:hidden;min-height:0}
+.top.tm .topin{position:relative;z-index:1;min-height:176px;display:flex;flex-direction:column;justify-content:space-between;padding-bottom:18px}
+.top.tm .back{color:#fff;opacity:.95}
+.top.tm h1{color:#fff;font-size:32px;text-wrap:balance}
+.covimg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0}
+.top.tm.hasimg::after{content:"";position:absolute;inset:0;z-index:0;background:linear-gradient(to bottom,rgba(0,0,0,.38),rgba(0,0,0,0) 34%,rgba(0,0,0,0) 48%,rgba(0,0,0,.6))}
+.top.tm.hasimg h1{text-shadow:0 1px 12px rgba(0,0,0,.35)}
+.hcard{padding-top:14px}
+.trip{grid-template-columns:auto minmax(0,1fr) auto!important}
+.trip .tico{display:grid!important;grid-column:1!important;grid-row:1/span 2!important;place-items:center;width:44px;height:44px;border-radius:10px;background:var(--tc)!important;color:#fff;font-weight:700;font-size:18px;overflow:hidden}
+.trip .tico::after{display:none}
+.trip .tico img{width:100%;height:100%;object-fit:cover}
+.trip b,.trip span:not(.tico):not(.cur){grid-column:2!important}
+.trip .cur{grid-column:3!important}
+.look{padding:12px!important;display:grid;gap:12px}
+.lkprev{position:relative;height:120px;border-radius:10px;background:var(--tc);overflow:hidden;display:flex;align-items:flex-end;padding:12px 14px;color:#fff}
+.lkprev img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.lkprev:has(img)::after{content:"";position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,0) 45%,rgba(0,0,0,.55))}
+.lkprev b{position:relative;z-index:1;font-size:20px}
+.lkrow{display:flex;gap:8px;flex-wrap:wrap}.lkrow .file{width:auto;flex:1}
+.swatches{display:flex;gap:10px;flex-wrap:wrap}
+.sw{width:34px;height:34px;border-radius:50%;border:0;background:var(--sw);cursor:pointer;padding:0;box-shadow:inset 0 0 0 2px rgba(255,255,255,.25)}
+.sw.on{box-shadow:0 0 0 2px var(--card),0 0 0 4px var(--sw)}
+.look .hint{margin:0}
+.swatches{gap:8px}.sw{width:32px;height:32px}
 </style></head><body>
 <div class="sync" id="sync" hidden></div>
 <header class="top" id="top"></header>
