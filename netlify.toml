@@ -2,6 +2,9 @@
 [build]
   publish = "."
   command = ""
+  # Saves credits: a push only goes live when its commit message contains [deploy].
+  # Netlify skips the build (no credits used) when this command exits 0.
+  ignore = 'git log -1 --pretty=%B | grep -q "\[deploy\]" && exit 1 || exit 0'
 
 [[headers]]
   for = "/sw.js"
