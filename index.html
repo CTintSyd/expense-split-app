@@ -455,6 +455,11 @@ button.bal .amt::after{content:"›";margin-left:8px;color:var(--muted);font-wei
 .trip .tico{grid-column:1;grid-row:1/span 2}
 .trip b{grid-column:2;grid-row:1}
 .trip span:not(.tico):not(.cur){grid-row:2}
+/* Numbered people list */
+.plist{counter-reset:ppl}
+.plist li{counter-increment:ppl;grid-template-columns:22px minmax(0,1fr) 36px}
+.plist li::before{content:counter(ppl) ".";width:auto;height:auto;border-radius:0;background:none!important;color:var(--muted);font-weight:700;font-size:15px;font-variant-numeric:tabular-nums;justify-self:end}
+.plist li:first-child::before{color:var(--teal)}
 </style></head><body>
 <div class="sync" id="sync" hidden></div>
 <header class="top" id="top"></header>
