@@ -92,10 +92,10 @@ function splitLabel(e){const w=weights(e),n=Object.keys(w).length,m=e.split?.mod
   if(m==='items'){const k=(e.split.items||[]).length;return `${k} item${k===1?'':'s'}`}
   if(m==='exact')return 'exact amounts';if(m==='percent')return 'by %';if(m==='shares')return 'by shares';if(m==='nights')return 'by nights';
   return n===members().length?'split with everyone':`split ${n} way${n===1?'':'s'}`}
-function expView(){if(!S.exp.length)return `<section class="band"><div class="empty"><h2>No expenses yet</h2><p class="muted">Tap <b>Add expense</b> when someone pays for fuel, food or a room.</p></div></section>`;
+function expView(){if(!S.exp.length)return `<section class="band"><div class="empty"><h2>No expenses yet</h2><p class="muted">Tap <b>Add expense</b> when someone pays for fuel, food or a room.</p><button type="button" class="btn" data-act="imx-open" style="margin-top:14px">Import from a screenshot or bank file</button></div></section>`;
   const me=S.me[S.tid],rows=[...S.exp].sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.createdAt||0)-(a.createdAt||0)),days=[];
   for(const e of rows){const d=e.date||'';if(!days.length||days[days.length-1].d!==d)days.push({d,items:[]});days[days.length-1].items.push(e)}
-  return `<section class="band">${days.map(g=>`<h3 class="day"><span>${esc(fmtDate(g.d))}</span><span>${fc(g.items.reduce((s,e)=>s+eCents(e),0))}</span></h3><ul class="list">${g.items.map(e=>{const c=eCents(e),mine=alloc(c,weights(e))[me]||0;
+  return `<section class="band"><div class="imbar"><button type="button" class="btn small" data-act="imx-open"><span aria-hidden="true">⇪</span> Import</button></div>${days.map(g=>`<h3 class="day"><span>${esc(fmtDate(g.d))}</span><span>${fc(g.items.reduce((s,e)=>s+eCents(e),0))}</span></h3><ul class="list">${g.items.map(e=>{const c=eCents(e),mine=alloc(c,weights(e))[me]||0;
     return `<li><button type="button" class="exp" data-act="edit" data-id="${esc(e.id)}">${av(e.paidBy)}<span class="ed"><b>${esc(e.desc)}</b><small>${esc(e.paidBy===me?'You':mname(e.paidBy))} paid · ${esc(splitLabel(e))}${mine?` · your part ${fc(mine)}`:''}${e.receipt?' · receipt':''}</small></span><span class="amt">${fc(c)}${e.cur!==home()?`<small>${esc(money(num(e.amount),e.cur))}</small>`:''}</span></button></li>`}).join('')}</ul>`).join('')}</section>`}
 
 function settleView(){const {net}=calc(),me=S.me[S.tid],max=Math.max(1,...Object.values(net).map(Math.abs)),plan=settle(net);
@@ -125,7 +125,7 @@ function openForm(e){delArm=false;const me=S.me[S.tid];
     F={desc:'',amount:'',cur,rate:cur!==home()?String(S.trip.rates?.[cur]??''):'',paidBy:me,date:today(),mode:'equal',parts:Object.fromEntries(members().map(m=>[m.id,1])),items:[],receipt:null,file:null,drop:false,nb:{},pd:{}}}
   if(F.mode==='items'&&F.items.length){const x=Math.round((num(F.amount)-F.items.reduce((t,it)=>t+num(it.p),0))*100)/100;F.extra=x?String(x):''}else F.extra='';
   $('#sheet').hidden=false;renderForm();if(!e)setTimeout(()=>$('#f-amount')?.focus(),50)}
-function closeSheet(){$('#sheet').hidden=true;$('#panel').innerHTML='';if(F?.preview)URL.revokeObjectURL(F.preview);F=null}
+function closeSheet(){IM=null;$('#sheet').hidden=true;$('#panel').innerHTML='';if(F?.preview)URL.revokeObjectURL(F.preview);F=null}
 // Items: each item is split equally between the people who had it. Anything on the bill beyond the
 // items (surcharge, tip, tax) is shared in proportion to what each person's items cost.
 function itemMath(){const ids=new Set(members().map(m=>m.id)),per={};let isum=0,asum=0,bad=0;
@@ -436,3 +436,137 @@ else{const app=initializeApp(cfg);S.app=app;
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 
 document.addEventListener('keydown',ev=>{if(ev.key==='Enter'&&ev.target.id==='f-nall'){ev.preventDefault();document.querySelector('[data-act=nfill]')?.click()}});
+
+// ---- Import many expenses at once: a bank CSV/Excel export, or photos/screenshots of a transaction list ----
+let IM=null;
+const IM_MAX=300;
+function imOpen(){const me=S.me[S.tid];IM={step:'pick',rows:[],cur:home(),rate:'',paidBy:me,who:Object.fromEntries(members().map(m=>[m.id,1])),busy:'',err:'',srcs:[]};$('#sheet').hidden=false;imRender()}
+const imTitle=s=>{s=String(s||'').replace(/\s+/g,' ').trim();if(s&&s===s.toUpperCase()&&/[A-Z]{3}/.test(s))s=s.toLowerCase().replace(/(^|[\s\-\/&(.'])([a-z])/g,(m,a,b)=>a+b.toUpperCase());return s};
+const imClean=s=>imTitle(String(s||'').replace(/\b(card|crd)\s*x{2,}\d+/ig,'').replace(/value date:?\s*\S+/ig,'').replace(/\s+(aus|au)\s*$/i,'').replace(/\s+(nsw|ns|vic|vi|qld|ql|wa|sa|tas|ta|nt|act|ac)\s*$/i,'').replace(/\s{2,}/g,' ').trim()).slice(0,80)||'Expense';
+const MON={jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,sept:9,oct:10,nov:11,dec:12};
+function imDate(v,mdFirst){if(v==null)return '';if(v instanceof Date&&!isNaN(v))return v.getFullYear()+'-'+String(v.getMonth()+1).padStart(2,'0')+'-'+String(v.getDate()).padStart(2,'0');
+  let s=String(v).trim();if(!s)return '';let m,y,mo,d;const fy=y=>y<100?2000+y:y;
+  if(m=s.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/)){y=+m[1];mo=+m[2];d=+m[3]}
+  else if(m=s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{2,4})\b/)){y=fy(+m[3]);if(mdFirst||+m[2]>12){mo=+m[1];d=+m[2]}else{d=+m[1];mo=+m[2]}}
+  else if(m=s.match(/^(\d{1,2})[\s\-]+([A-Za-z]{3,9})\.?[\s\-,]+(\d{2,4})\b/)){d=+m[1];mo=MON[m[2].toLowerCase().slice(0,4)]||MON[m[2].toLowerCase().slice(0,3)];y=fy(+m[3])}
+  else if(m=s.match(/^(?:[A-Za-z]{3,9},?\s+)?([A-Za-z]{3,9})\.?\s+(\d{1,2}),?\s+(\d{4})\b/)){mo=MON[m[1].toLowerCase().slice(0,4)]||MON[m[1].toLowerCase().slice(0,3)];d=+m[2];y=+m[3]}
+  else return '';
+  if(!(y>1990&&y<2100&&mo>=1&&mo<=12&&d>=1&&d<=31))return '';return y+'-'+String(mo).padStart(2,'0')+'-'+String(d).padStart(2,'0')}
+function imNum(v){if(typeof v==='number')return isFinite(v)?v:NaN;let s=String(v??'').trim();if(!s)return NaN;let neg=false;
+  if(/^\(.*\)$/.test(s)){neg=true;s=s.slice(1,-1)}if(/\bDR\b/i.test(s))neg=true;s=s.replace(/\b(CR|DR)\b/ig,'');
+  s=s.replace(/[^\d.,\-+]/g,'');if(/^-|-$/.test(s)){neg=!neg;s=s.replace(/-/g,'')}s=s.replace(/^\+/,'');
+  if(/,\d{1,2}$/.test(s)&&!/\.\d/.test(s))s=s.replace(/\./g,'').replace(',','.');else s=s.replace(/,/g,'');
+  if(!/^\d*\.?\d+$/.test(s))return NaN;const n=parseFloat(s);return neg?-n:n}
+function imCSV(text){text=text.replace(/^﻿/,'');const first=text.split(/\r?\n/).find(l=>l.trim())||'';const dl=[',',';','\t','|'].sort((a,b)=>first.split(b).length-first.split(a).length)[0];
+  const rows=[];let row=[],cell='',q=false;for(let i=0;i<text.length;i++){const ch=text[i];
+    if(q){if(ch==='"'){if(text[i+1]==='"'){cell+='"';i++}else q=false}else cell+=ch}
+    else if(ch==='"')q=true;else if(ch===dl){row.push(cell);cell=''}else if(ch==='\n'||ch==='\r'){if(ch==='\r'&&text[i+1]==='\n')i++;row.push(cell);rows.push(row);row=[];cell=''}else cell+=ch}
+  if(cell||row.length){row.push(cell);rows.push(row)}return rows.filter(r=>r.some(c=>String(c).trim()))}
+function imCurFrom(s){s=String(s||'');const c=s.toUpperCase().match(/\b([A-Z]{3})\b/g)?.find(x=>CURS.includes(x));if(c)return c;
+  if(/円/.test(s))return 'JPY';if(/元|RMB/i.test(s))return 'CNY';if(/¥/.test(s))return S.trip.rates?.CNY&&!S.trip.rates?.JPY?'CNY':'JPY';if(/€/.test(s))return 'EUR';if(/£/.test(s))return 'GBP';if(/₩/.test(s))return 'KRW';if(/฿/.test(s))return 'THB';return ''}
+// Works out which columns hold the date, description and amount, with or without a header row.
+function imTable(rows){rows=rows.map(r=>r.map(c=>c instanceof Date?c:String(c??'').trim()));const n=Math.max(...rows.map(r=>r.length));if(!rows.length||n<2)throw new Error("couldn't find any rows");
+  const col=c=>rows.map(r=>r[c]??'');let dc=-1,best=0;
+  for(let c=0;c<n;c++){const v=col(c).filter(x=>x!=='');const f=v.length?v.filter(x=>imDate(x)).length/rows.length:0;if(f>best){best=f;dc=c}}
+  if(dc<0||best<0.3)throw new Error("couldn't find a date column");
+  const md=col(dc).some(x=>{const m=String(x).match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.]/);return m&&+m[2]>12});
+  const di=rows.findIndex(r=>imDate(r[dc],md));let hdr=[];if(di>0&&!imDate(rows[di-1][dc],md))hdr=rows[di-1].map(x=>String(x).toLowerCase());
+  const data=rows.slice(di).filter(r=>imDate(r[dc],md));
+  const numeric=c=>{const v=data.map(r=>r[c]??'').filter(x=>String(x).trim()!=='');return v.length>=data.length*0.3&&v.filter(x=>!isNaN(imNum(x))).length>=v.length*0.8};
+  const H=(re,ex)=>hdr.findIndex((h,c)=>c!==dc&&re.test(h)&&!(ex&&ex.test(h)));
+  const bal=H(/balance/);let deb=H(/debit|withdraw|money out|paid out|outflow|spent/),cre=H(/credit|deposit|money in|paid in|inflow/,/card/);
+  if(deb>=0&&!numeric(deb))deb=-1;if(cre>=0&&!numeric(cre))cre=-1;
+  let ac=-1;if(deb<0){ac=H(/amount|value|total|price|^aud|^jpy|^cny|^usd/,/balance/);if(ac>=0&&!numeric(ac))ac=-1;
+    if(ac<0){const nc=[];for(let c=0;c<n;c++)if(c!==dc&&c!==bal&&numeric(c))nc.push(c);if(!nc.length)throw new Error("couldn't find an amount column");
+      const negs=c=>data.filter(r=>imNum(r[c])<0).length;ac=nc.reduce((a,c)=>negs(c)>negs(a)?c:a,nc[0])}}
+  const used=new Set([dc,deb,cre,ac,bal]);let tc=H(/desc|detail|narrat|merchant|payee|particular|transaction|memo|name|reference|item/,/date|amount|type|category/);
+  if(tc<0||used.has(tc)){let bl=-1;tc=-1;for(let c=0;c<n;c++){if(used.has(c))continue;const avg=data.reduce((s,r)=>s+String(r[c]??'').length,0)/data.length;if(avg>bl&&data.some(r=>isNaN(imNum(r[c]))&&String(r[c]??'').trim())){bl=avg;tc=c}}}
+  let neg=0,pos=0;if(ac>=0)for(const r of data){const v=imNum(r[ac]);if(v<0)neg++;else if(v>0)pos++}const outNeg=neg>=pos;
+  const cur=imCurFrom(hdr.join(' '))||imCurFrom(data.slice(0,20).map(r=>r[ac>=0?ac:deb]).join(' '));
+  const out=[];for(const r of data){let amt,dir;
+    if(deb>=0){const a=imNum(r[deb]),b=cre>=0?imNum(r[cre]):NaN;if(!isNaN(a)&&a!==0){amt=Math.abs(a);dir='out'}else if(!isNaN(b)&&b!==0){amt=Math.abs(b);dir='in'}else continue}
+    else{const v=imNum(r[ac]);if(isNaN(v)||v===0)continue;amt=Math.abs(v);dir=(v<0)===outNeg?'out':'in'}
+    out.push({date:imDate(r[dc],md),desc:tc>=0?r[tc]:'',amount:amt,dir})}
+  if(!out.length)throw new Error("couldn't find any transactions");return {cur,tx:out}}
+async function imSheetRows(file){const buf=await file.arrayBuffer();let X;
+  for(const u of['https://cdn.jsdelivr.net/npm/xlsx@0.18.5/+esm','https://esm.sh/xlsx@0.18.5']){try{X=await import(u);break}catch(e){}}
+  if(!X)throw new Error("couldn't open Excel files here. Save it as CSV and try again");
+  const wb=X.read(buf,{type:'array',cellDates:true});let rows=[];for(const nm of wb.SheetNames){rows=X.utils.sheet_to_json(wb.Sheets[nm],{header:1,raw:true,defval:''});if(rows.length>1)break}
+  return rows.map(r=>r.map(c=>typeof c==='number'?String(c):c))}
+function imAdd(tx,cur,src){const dp=c=>curDp(c||IM.cur);if(!IM.rows.length&&cur&&curOptions().includes(cur)){IM.cur=cur;IM.rate=cur!==home()?String(S.trip.rates?.[cur]??''):''}
+  const key=t=>`${t.date}|${String(t.desc).toLowerCase().replace(/\W/g,'')}|${Math.round(t.amount*100)}`,seen=new Set(IM.rows.map(key));let added=0,skipped=0;
+  for(const t of tx){if(IM.rows.length>=IM_MAX)break;const r={id:rid(6),date:t.date||'',desc:imClean(t.desc),amount:(Math.round(num(t.amount)*10**dp())/10**dp()).toFixed(dp()),dir:t.dir==='in'?'in':'out',src};
+    if(!(num(r.amount)>0))continue;if(seen.has(key(r))){skipped++;continue}seen.add(key(r));
+    r.dup=S.exp.some(e=>e.date===r.date&&e.cur===IM.cur&&Math.abs(num(e.amount)-num(r.amount))<0.005);r.on=r.dir==='out'&&!r.dup;IM.rows.push(r);added++}
+  IM.rows.sort((a,b)=>(a.date||'9').localeCompare(b.date||'9'));return {added,skipped}}
+async function imFiles(files){files=[...files];if(!files.length)return;IM.err='';
+  for(const [k,f] of files.entries()){if(!IM)return;const img=/^image\//.test(f.type)||/\.(heic|heif|jpe?g|png|webp)$/i.test(f.name),tag=files.length>1?` (${k+1} of ${files.length})`:'';
+    IM.busy=img?`Reading the photo${tag}…`:`Reading ${f.name}…`;imRender();
+    try{let r;if(img)r=await imReadPhoto(f);else{const rows=/\.(xlsx|xlsm|xls|ods)$/i.test(f.name)?await imSheetRows(f):imCSV(await f.text());r=imTable(rows)}
+      if(!IM)return;const {added,skipped}=imAdd(r.tx,r.cur,f.name);IM.srcs.push(f.name);if(!added&&!skipped)IM.err=`Nothing found in ${f.name}.`;else if(skipped)toast(`${skipped} repeated row${skipped>1?'s':''} skipped`)}
+    catch(e){console.error(e);if(!IM)return;IM.err=`Couldn't read ${f.name}: ${e?.message||'try another file'}.`}}
+  if(!IM)return;IM.busy='';IM.step=IM.rows.length?'review':'pick';imRender()}
+function imPhotoNorm(r){const cur=String(r?.currency||'').toUpperCase();return {cur:/^[A-Z]{3}$/.test(cur)?cur:'',tx:(Array.isArray(r?.transactions)?r.transactions:[]).map(t=>({date:/^\d{4}-\d{2}-\d{2}$/.test(t?.date||'')?t.date:'',desc:String(t?.description||''),amount:Math.abs(num(t?.amount)),dir:String(t?.direction||'out').toLowerCase()==='in'?'in':'out'})).filter(t=>t.amount>0)}}
+const IM_PROMPT=()=>`This image shows a list of bank or card transactions (a phone screenshot, a statement, or a photo of one). Today is ${today()}. List every transaction shown, top to bottom. `+
+  `date: YYYY-MM-DD. If the year isn't shown, use the most recent such date that isn't after today. If transactions are grouped under a day heading (like "Today", "Yesterday" or "Fri 27 Nov"), use that day. Empty only if no date is shown anywhere. `+
+  `description: the merchant or payee as shown, with tidy capitalisation, without card numbers or reference codes. amount: a positive number. `+
+  `direction: "out" for purchases, payments and withdrawals, "in" for refunds, deposits and money received. Skip running balances, totals and headings. `+
+  `currency: the ISO 4217 code of the amounts, guessed from symbols and the bank's country if not printed.`;
+function imMoney(v){return IM.cur===home()?fc(Math.round(v*100)):money(v,IM.cur)}
+function imSel(){return IM.rows.filter(r=>r.on&&num(r.amount)>0)}
+function imRender(){if(!IM)return;const p=$('#panel');if(!p)return;const ms=members(),fx=IM.cur!==home();
+  const head=`<div class="ph"><h2>Import expenses</h2><button type="button" class="x" data-act="close" aria-label="Close">×</button></div>`;
+  const pick=`<div class="imdrop"><p>Add a <b>screenshot or photo</b> of a transaction list, or a <b>CSV or Excel file</b> exported from your bank. You choose which ones to add before anything is saved.</p>
+    <label class="btn primary file">Photo or screenshot<input type="file" class="imfile" accept="image/*" multiple></label>
+    <label class="btn file">CSV or Excel file<input type="file" class="imfile" accept=".csv,.tsv,.txt,.xlsx,.xls,.xlsm,.ods,text/csv"></label>
+    <p class="hint">Several screenshots of one long list are fine. Rows that repeat across them are only added once.</p></div>`;
+  const status=IM.busy?`<p class="imbusy"><span class="spin" aria-hidden="true"></span>${esc(IM.busy)}</p>`:IM.err?`<p class="err">${esc(IM.err)}</p>`:'';
+  if(IM.step==='pick'){p.innerHTML=head+`<div class="stackf">${status}${IM.busy?'':pick}</div>`;return}
+  const n=IM.rows.filter(r=>r.on).length,ins=IM.rows.filter(r=>r.dir==='in').length,dups=IM.rows.filter(r=>r.dup).length;
+  p.innerHTML=head+`<div class="stackf">
+    <div class="imtop"><span>${IM.rows.length} found${ins?` · ${ins} money in`:''}${dups?` · ${dups} already added?`:''}</span><span><button type="button" class="btn small" data-act="imx-all">All</button><button type="button" class="btn small" data-act="imx-none">None</button></span></div>
+    <p class="hint" style="margin:-4px 0 0">Untick anything that isn't shared. Money in and likely duplicates start unticked.</p>
+    <ul class="imlist">${IM.rows.map((r,i)=>`<li class="imrow${r.on?' on':''}"><label class="imck"><input type="checkbox" data-i="${i}" class="imon"${r.on?' checked':''} aria-label="Add ${esc(r.desc)}"></label>
+      <span class="imm"><input class="imdesc" data-i="${i}" value="${esc(r.desc)}" maxlength="80" aria-label="Description"><span class="imsub"><input type="date" class="imdate" data-i="${i}" value="${esc(r.date)}" aria-label="Date">${r.dir==='in'?'<em class="tag in">money in</em>':''}${r.dup?'<em class="tag dup">already added?</em>':''}</span></span>
+      <span class="ima"><span class="psym" aria-hidden="true">${esc(curSym(IM.cur))}</span><input class="imamt" data-i="${i}" inputmode="decimal" value="${esc(r.amount)}" aria-label="Amount"></span></li>`).join('')}</ul>
+    <label class="btn small file imaddmore">+ Add another screenshot or file<input type="file" class="imfile" accept="image/*,.csv,.tsv,.txt,.xlsx,.xls,.xlsm,.ods" multiple></label>${status}
+    <fieldset class="imset"><legend>For all ticked expenses</legend>
+      <div class="two"><label>Currency<select id="im-cur">${curOptions().map(c=>`<option${c===IM.cur?' selected':''}>${esc(c)}</option>`).join('')}</select></label>
+      <label>Paid by<select id="im-paid">${ms.map(m=>`<option value="${esc(m.id)}"${m.id===IM.paidBy?' selected':''}>${esc(m.name)}</option>`).join('')}</select></label></div>
+      ${fx?`<label>Exchange rate <small>1 ${esc(IM.cur)} = how many ${esc(home())}?</small><input id="im-rate" inputmode="decimal" value="${esc(IM.rate)}" placeholder="e.g. 0.0103"></label>`:''}
+      <div><span class="imlbl">Split equally between</span><div class="chips">${ms.map(m=>`<button type="button" class="chip${IM.who[m.id]?' on':''}" data-act="imx-who" data-id="${esc(m.id)}" aria-pressed="${!!IM.who[m.id]}">${av(m.id,'xs')}${esc(m.name)}</button>`).join('')}</div>
+      <p class="hint" style="margin-top:6px">You can change the split on any of them afterwards, e.g. to Items or Nights.</p></div></fieldset>
+    <p class="err" id="im-err"></p>
+    <div class="acts"><button type="button" class="btn primary" id="im-save" data-act="imx-save">${imBtn()}</button></div></div>`}
+function imBtn(){const s=imSel(),t=s.reduce((a,r)=>a+num(r.amount),0);return s.length?`Add ${s.length} expense${s.length>1?'s':''} · ${imMoney(t)}`:'Tick the ones to add'}
+function imFoot(){const b=$('#im-save');if(b)b.textContent=imBtn()}
+async function imSave(){const sel=imSel(),err=m=>{const e=$('#im-err');if(e)e.textContent=m};if(!sel.length)return err('Tick at least one expense.');
+  const parts={};for(const m of members())if(IM.who[m.id])parts[m.id]=1;if(!Object.keys(parts).length)return err('Choose who these are split between.');
+  const fx=IM.cur!==home(),rate=fx?num(IM.rate):1;if(!(rate>0))return err(`Enter the exchange rate for ${IM.cur}.`);
+  const b=$('#im-save');if(b){b.disabled=true;b.textContent='Adding…'}const me=S.me[S.tid],now=Date.now();let tot=0;
+  try{for(const [k,r] of sel.entries()){const amount=num(r.amount);tot+=amount;
+    await imPut(`trips/${S.tid}/expenses/${rid(12)}`,{desc:r.desc.trim()||'Expense',amount,cur:IM.cur,rate,paidBy:IM.paidBy,date:r.date||today(),split:{mode:'equal',parts},receipt:null,createdBy:me,createdAt:now+k,updatedAt:now+k,updatedBy:me})}}
+  catch(e){if(b){b.disabled=false;b.textContent=imBtn()}return err(e?.message||"Couldn't save. Check your signal and try again.")}
+  if(fx&&num(S.trip.rates?.[IM.cur])!==rate)tripSave({rates:{...(S.trip.rates||{}),[IM.cur]:rate}});
+  logAct(`imported ${sel.length} expense${sel.length>1?'s':''} (${money(tot,IM.cur)})`);IM=null;closeSheet();toast(`${sel.length} expense${sel.length>1?'s':''} added`)}
+document.addEventListener('click',ev=>{const b=ev.target.closest?.('[data-act]');if(!b)return;const a=b.dataset.act;
+  if(a==='imx-open'){ev.stopPropagation();imOpen();return}if(!IM||!a.startsWith('imx-'))return;
+  if(a==='imx-all'){IM.rows.forEach(r=>r.on=true);imRender()}else if(a==='imx-none'){IM.rows.forEach(r=>r.on=false);imRender()}
+  else if(a==='imx-who'){const id=b.dataset.id;IM.who[id]=IM.who[id]?0:1;b.classList.toggle('on',!!IM.who[id]);b.setAttribute('aria-pressed',!!IM.who[id])}
+  else if(a==='imx-save')imSave()});
+document.addEventListener('change',ev=>{if(!IM)return;const t=ev.target;
+  if(t.classList.contains('imfile')){const fs=[...(t.files||[])];t.value='';imFiles(fs)}
+  else if(t.classList.contains('imon')){const r=IM.rows[+t.dataset.i];if(r){r.on=t.checked;t.closest('.imrow')?.classList.toggle('on',r.on);imFoot()}}
+  else if(t.id==='im-cur'){IM.cur=t.value;IM.rate=IM.cur!==home()?String(S.trip.rates?.[IM.cur]??''):'';imRender()}
+  else if(t.id==='im-paid')IM.paidBy=t.value;
+  else if(t.classList.contains('imdate')){const r=IM.rows[+t.dataset.i];if(r)r.date=t.value}});
+document.addEventListener('input',ev=>{if(!IM)return;const t=ev.target,r=IM.rows[+t.dataset?.i];
+  if(t.classList.contains('imdesc')&&r)r.desc=t.value;else if(t.classList.contains('imamt')&&r){r.amount=t.value;imFoot()}else if(t.id==='im-rate')IM.rate=t.value});
+
+const imPut=async(path,body)=>{put(path,body)};
+let txModel=null;
+async function imReadPhoto(file){if(!txModel){const {getAI,getGenerativeModel,GoogleAIBackend,Schema}=await import('https://www.gstatic.com/firebasejs/13.4.0/firebase-ai.js');
+    const schema=Schema.object({properties:{currency:Schema.string({description:'ISO 4217 code such as AUD, JPY, CNY'}),transactions:Schema.array({items:Schema.object({properties:{date:Schema.string({description:'YYYY-MM-DD or empty'}),description:Schema.string(),amount:Schema.number({description:'Positive amount'}),direction:Schema.string({description:'out or in'})}})})}});
+    txModel=getGenerativeModel(getAI(S.app,{backend:new GoogleAIBackend()}),{model:AI_MODEL,generationConfig:{responseMimeType:'application/json',responseSchema:schema}})}
+  const b=await shrink(file,2400,.85),data=(await toData(b)).split(',')[1];
+  const res=await txModel.generateContent([IM_PROMPT(),{inlineData:{data,mimeType:'image/jpeg'}}]);return imPhotoNorm(JSON.parse(res.response.text()))}

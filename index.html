@@ -503,6 +503,27 @@ button.bal .amt::after{content:"›";margin-left:8px;color:var(--muted);font-wei
 .sgr{padding:9px 0;border-top:1px solid var(--soft);font-size:14px;line-height:1.45}
 .sgr small{display:block;color:var(--muted);font-size:13px;margin-top:2px}
 .sgr.on{background:var(--soft);margin:0 -8px;padding:9px 8px;border-radius:10px;border-top-color:transparent}
+
+/* Import */
+.imbar{display:flex;justify-content:flex-end;margin:-4px 0 4px}
+.imdrop{display:grid;gap:12px}.imdrop p{margin:0}
+.imbusy{display:flex;align-items:center;gap:10px;font-weight:600;color:var(--muted)}
+.imtop{display:flex;justify-content:space-between;align-items:center;gap:8px;font-weight:700}.imtop>span:last-child{display:flex;gap:6px}
+.imlist{list-style:none;margin:0;padding:0;border-radius:14px;background:var(--card);box-shadow:var(--shadow);overflow:hidden}
+.imrow{display:grid;grid-template-columns:34px minmax(0,1fr) 96px;align-items:center;gap:6px;padding:8px 10px 8px 4px;border-top:1px solid var(--soft)}
+.imrow:first-child{border-top:0}.imrow:not(.on) .imm,.imrow:not(.on) .ima{opacity:.45}
+.imck{display:grid;place-items:center;height:100%;cursor:pointer}.imck input{width:20px;height:20px;accent-color:var(--ink)}
+.imm{display:grid;gap:2px;min-width:0}
+.imdesc{border:0;background:none;padding:4px 6px;font-weight:700;font-size:15px;min-height:0;width:100%}
+.imsub{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.imdate{border:0;background:none;padding:0 6px;font-size:13px;color:var(--muted);min-height:0;width:auto}
+.tag{font-style:normal;font-size:11px;font-weight:700;border-radius:6px;padding:2px 6px}.tag.in{background:#e3f4ea;color:#1e7a46}.tag.dup{background:#fdeedc;color:#9a5a12}
+.ima{display:flex;align-items:center;justify-content:flex-end;gap:2px}.ima .psym{color:var(--muted);font-weight:700}
+.imamt{text-align:right;font-weight:700;font-variant-numeric:tabular-nums;padding:6px 8px;min-height:0;width:100%}
+.imaddmore{justify-self:start}
+.imset{display:grid;gap:12px}.imlbl{display:block;font-weight:600;margin-bottom:6px}
+.imdesc:focus,.imdate:focus{background:var(--soft);border-radius:8px;outline:none}
+.spin{width:18px;height:18px;border-radius:50%;border:2.5px solid var(--soft);border-top-color:var(--ink);animation:imspin .8s linear infinite}@keyframes imspin{to{transform:rotate(360deg)}}
 </style></head><body>
 <div class="sync" id="sync" hidden></div>
 <header class="top" id="top"></header>
