@@ -59,6 +59,35 @@ function noteLast(){if(!S.tid)return;const m=Math.max(0,...S.exp.map(e=>Math.max
 function latestIn(path,field){return new Promise(res=>{let best=0,done=false,un=null;const fin=()=>{if(done)return;done=true;res(best);setTimeout(()=>un&&un(),0)};
   try{un=onSnapshot(query(collection(S.fs,path),orderBy(field,'desc'),limit(1)),{includeMetadataChanges:true},s=>{const d=s.docs[0]?.data();if(d)best=Math.max(best,num(d[field]),num(d.updatedAt));if(!s.metadata.fromCache)fin()},()=>fin())}catch(e){fin()}setTimeout(fin,6000)})}
 async function lastFetch(id){const [a,b]=await Promise.all([latestIn(`trips/${id}/log`,'t'),latestIn(`trips/${id}/expenses`,'createdAt')]);return Math.max(a,b)}
+// ---- Quick delete: swipe a row left, or select several ----
+var SEL=null,SWX=null;
+function delExps(ids){const tid=S.tid,gone=S.exp.filter(e=>ids.includes(e.id));if(!gone.length)return;
+  for(const e of gone)ddoc(`trips/${tid}/expenses/${e.id}`);
+  const tot=gone.reduce((s,e)=>s+eCents(e),0),one=gone.length===1;
+  logAct(one?`deleted ${gone[0].desc||'an expense'} (${fc(tot)})`:`deleted ${gone.length} expenses (${fc(tot)})`);
+  let undone=false;undoToast(one?'Expense deleted':`${gone.length} expenses deleted`,()=>{undone=true;for(const e of gone){const {id,...body}=e;wdoc(`trips/${tid}/expenses/${id}`,body)}logAct(one?`restored ${gone[0].desc||'an expense'}`:`restored ${gone.length} expenses`)});
+  setTimeout(()=>{if(!undone)for(const e of gone)dropRc(tid,e.id,e.receipt)},7600)}
+const selBar=()=>SEL?`<div class="selbar"><button type="button" class="btn danger" data-act="sel-del"${SEL.size?'':' disabled'}>${SEL.size?`Delete ${SEL.size} expense${SEL.size>1?'s':''}`:'Tick expenses to delete'}</button></div>`:'';
+const selTop=()=>SEL?`<span class="selc">${SEL.size} selected</span><button type="button" class="btn small" data-act="sel-all">${SEL.size===S.exp.length?'Clear':'Select all'}</button><button type="button" class="btn small" data-act="sel-off">Done</button>`:`<button type="button" class="btn small" data-act="sel-on">Select</button>`;
+function closeSwipes(except){document.querySelectorAll('.swl.open').forEach(li=>{if(li!==except){li.classList.remove('open');const b=li.querySelector('.exp');if(b)b.style.transform=''}})}
+document.addEventListener('click',ev=>{if(ev.target.closest?.('.back')&&SEL){SEL=null;document.body.classList.remove('selmode')}const b=ev.target.closest?.('[data-act]');if(!b)return;const a=b.dataset.act;
+  if(a==='tab'&&SEL){SEL=null;document.body.classList.remove('selmode')}
+  if(a==='sel-on'){SEL=new Set();document.body.classList.add('selmode');render()}
+  else if(a==='sel-off'){SEL=null;document.body.classList.remove('selmode');render()}
+  else if(a==='sel-all'&&SEL){SEL=SEL.size===S.exp.length?new Set():new Set(S.exp.map(e=>e.id));render()}
+  else if(a==='sel-del'&&SEL?.size){const ids=[...SEL];SEL=null;document.body.classList.remove('selmode');delExps(ids);render()}
+  else if(a==='sw-del'){ev.stopImmediatePropagation();delExps([b.dataset.id])}
+  else if(a==='edit'){if(SWX?.moved){ev.stopImmediatePropagation();ev.preventDefault();return}
+    const li=b.closest('.swl');if(li?.classList.contains('open')){ev.stopImmediatePropagation();closeSwipes();return}
+    if(SEL){ev.stopImmediatePropagation();const id=b.dataset.id;SEL.has(id)?SEL.delete(id):SEL.add(id);render()}}},true);
+document.addEventListener('pointerdown',ev=>{const b=ev.target.closest?.('.swl .exp');if(!b||SEL||ev.button>0){if(!ev.target.closest?.('.swl'))closeSwipes();return}
+  const li=b.closest('.swl');closeSwipes(li);SWX={b,li,x0:ev.clientX,y0:ev.clientY,base:li.classList.contains('open')?-88:0,dx:0,moved:false,lock:null}});
+document.addEventListener('pointermove',ev=>{if(!SWX)return;const dx=ev.clientX-SWX.x0,dy=ev.clientY-SWX.y0;
+  if(!SWX.lock){if(Math.abs(dx)<8&&Math.abs(dy)<8)return;SWX.lock=Math.abs(dx)>Math.abs(dy)?'x':'y'}
+  if(SWX.lock!=='x')return;SWX.moved=true;SWX.dx=Math.max(-120,Math.min(0,SWX.base+dx));SWX.b.style.transition='none';SWX.b.style.transform=`translateX(${SWX.dx}px)`});
+const swEnd=()=>{if(!SWX)return;const s=SWX;s.b.style.transition='';if(s.moved){const open=s.dx<-44;s.li.classList.toggle('open',open);s.b.style.transform=open?'translateX(-88px)':''}
+  setTimeout(()=>{if(SWX===s)SWX=null},0)};
+document.addEventListener('pointerup',swEnd);document.addEventListener('pointercancel',swEnd);
 // ---- Trip colour and cover photo ----
 const TCOL=[['#2f6fde','Blue'],['#e0673a','Orange'],['#2e9d6a','Green'],['#8a5cd1','Purple'],['#d4477a','Pink'],['#14919f','Teal'],['#c48a1c','Gold'],['#47546e','Slate']];
 const tColor=(t,id)=>{if(/^#[0-9a-f]{6}$/i.test(t?.color||''))return t.color;let h=0;for(const c of String(id||''))h=(h*31+c.charCodeAt(0))>>>0;return TCOL[h%TCOL.length][0]};
@@ -154,8 +183,8 @@ function splitLabel(e){const w=weights(e),n=Object.keys(w).length,m=e.split?.mod
 function expView(){if(!S.exp.length)return `<section class="band"><div class="empty"><h2>No expenses yet</h2><p class="muted">Tap <b>Add expense</b> when someone pays for something shared, like food, transport, a room or bills.</p><button type="button" class="btn" data-act="imx-open" style="margin-top:14px">Import from a screenshot or bank file</button></div></section>`;
   const me=S.me[S.tid],rows=[...S.exp].sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.createdAt||0)-(a.createdAt||0)),days=[];
   for(const e of rows){const d=e.date||'';if(!days.length||days[days.length-1].d!==d)days.push({d,items:[]});days[days.length-1].items.push(e)}
-  return `<section class="band"><div class="imbar"><button type="button" class="btn small" data-act="imx-open"><span aria-hidden="true">⇪</span> Import</button></div>${days.map(g=>`<h3 class="day"><span>${esc(fmtDate(g.d))}</span><span>${fc(g.items.reduce((s,e)=>s+eCents(e),0))}</span></h3><ul class="list">${g.items.map(e=>{const c=eCents(e),mine=alloc(c,weights(e))[me]||0;
-    return `<li><button type="button" class="exp" data-act="edit" data-id="${esc(e.id)}">${av(e.paidBy)}<span class="ed"><b>${esc(e.desc)}</b><small>${esc(e.paidBy===me?'You':mname(e.paidBy))} paid, ${esc(splitLabel(e))}${e.receipt?', with receipt':''}</small></span><span class="amt">${fc(c)}${e.cur!==home()?`<small>${esc(money(num(e.amount),e.cur))}</small>`:''}${mine?`<small class="mine">yours ${fc(mine)}</small>`:''}</span></button></li>`}).join('')}</ul>`).join('')}</section>`}
+  return `<section class="band"><div class="imbar">${selTop()}${SEL?'':'<button type="button" class="btn small" data-act="imx-open"><span aria-hidden="true">⇪</span> Import</button>'}</div>${days.map(g=>`<h3 class="day"><span>${esc(fmtDate(g.d))}</span><span>${fc(g.items.reduce((s,e)=>s+eCents(e),0))}</span></h3><ul class="list">${g.items.map(e=>{const c=eCents(e),mine=alloc(c,weights(e))[me]||0;
+    return `<li class="swl${SEL?.has(e.id)?' picked':''}"><button type="button" class="xdel" data-act="sw-del" data-id="${esc(e.id)}" tabindex="-1">Delete</button><button type="button" class="exp${SEL?' sel':''}" data-act="edit" data-id="${esc(e.id)}">${SEL?`<span class="selck${SEL.has(e.id)?' on':''}" aria-hidden="true"></span>`:''}${av(e.paidBy)}<span class="ed"><b>${esc(e.desc)}</b><small>${esc(e.paidBy===me?'You':mname(e.paidBy))} paid, ${esc(splitLabel(e))}${e.receipt?', with receipt':''}</small></span><span class="amt">${fc(c)}${e.cur!==home()?`<small>${esc(money(num(e.amount),e.cur))}</small>`:''}${mine?`<small class="mine">yours ${fc(mine)}</small>`:''}</span></button></li>`}).join('')}</ul>`).join('')}${selBar()}</section>`}
 
 function settleView(){const {net}=calc(),me=S.me[S.tid],max=Math.max(1,...Object.values(net).map(Math.abs)),plan=settle(net);
   const who=id=>id===me?'You':mname(id);
