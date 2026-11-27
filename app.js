@@ -61,10 +61,9 @@ function syncBadge(){const p=Object.values(S.pending).some(Boolean),b=$('#sync')
 function renderTop(){const t=$('#top');
   if(S.tid&&S.trip){const me=S.me[S.tid],{net,share,spent}=calc(),n=me?net[me]||0:0;
     const lab=!me?'Trip total':n>0?"You're owed":n<0?'You owe':"You're all square";
-    t.className='top tm';t.innerHTML=SCENE+`<div class="topin"><a class="back" href="./">All trips</a><h1>${esc(S.trip.name)}</h1></div>`;
-    $('#hcard').innerHTML=`<div><div><div class="lab">${lab}</div><div class="big ${me&&n>0?'pos':me&&n<0?'neg':''}">${fc(me?Math.abs(n):spent)}</div></div>
-      <dl class="mini"><div><dt>Trip total</dt><dd>${fc(spent)}</dd></div>${me?`<div><dt>Your share</dt><dd>${fc(share[me]||0)}</dd></div>`:''}<div><dt>Expenses</dt><dd>${S.exp.length}</dd></div></dl></div>`;$('#hcard').hidden=false;
-  }else{t.className='top';t.innerHTML=SCENE+`<div class="topin"><h1>Expenses Split</h1><p class="sub">Everyone adds what they paid. The app works out who owes whom.</p></div>`;$('#hcard').hidden=true}}
+    t.className='top tm';t.innerHTML=`<div class="topin"><a class="back" href="./">All trips</a><h1>${esc(S.trip.name)}</h1></div>`;
+    $('#hcard').innerHTML=`<p class="bal1"><span>${lab}</span><b class="big ${me&&n>0?'pos':me&&n<0?'neg':''}">${fc(me?Math.abs(n):spent)}</b></p><p class="bal2">${me?`Your share is ${fc(share[me]||0)} of ${fc(spent)} spent`:`${fc(spent)} spent`} across ${S.exp.length} expense${S.exp.length===1?'':'s'}.</p>`;$('#hcard').hidden=false;
+  }else{t.className='top';t.innerHTML=`<div class="topin"><h1>Expenses Split</h1><p class="sub">Everyone adds what they paid, and it works out who owes whom.</p></div>`;$('#hcard').hidden=true}}
 
 function render(){renderTop();syncBadge();const a=$('#app'),fab=$('#fab');fab.hidden=true;
   if(S.setup){a.innerHTML=`<section class="band"><div class="empty"><h2>Almost ready</h2><p class="muted">Paste your Firebase config into <b>firebase-config.js</b>, then upload the folder again.</p></div></section>`;return}
@@ -91,18 +90,18 @@ function homeView(){const list=Object.entries(S.recent).sort((a,b)=>(b[1].at||0)
 function splitLabel(e){const w=weights(e),n=Object.keys(w).length,m=e.split?.mode;
   if(m==='items'){const k=(e.split.items||[]).length;return `${k} item${k===1?'':'s'}`}
   if(m==='exact')return 'exact amounts';if(m==='percent')return 'by %';if(m==='shares')return 'by shares';if(m==='nights')return 'by nights';
-  return n===members().length?'split with everyone':`split ${n} way${n===1?'':'s'}`}
+  return n===members().length?'split by all':`split ${n} way${n===1?'':'s'}`}
 function expView(){if(!S.exp.length)return `<section class="band"><div class="empty"><h2>No expenses yet</h2><p class="muted">Tap <b>Add expense</b> when someone pays for something shared, like food, transport, a room or bills.</p><button type="button" class="btn" data-act="imx-open" style="margin-top:14px">Import from a screenshot or bank file</button></div></section>`;
   const me=S.me[S.tid],rows=[...S.exp].sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.createdAt||0)-(a.createdAt||0)),days=[];
   for(const e of rows){const d=e.date||'';if(!days.length||days[days.length-1].d!==d)days.push({d,items:[]});days[days.length-1].items.push(e)}
   return `<section class="band"><div class="imbar"><button type="button" class="btn small" data-act="imx-open"><span aria-hidden="true">⇪</span> Import</button></div>${days.map(g=>`<h3 class="day"><span>${esc(fmtDate(g.d))}</span><span>${fc(g.items.reduce((s,e)=>s+eCents(e),0))}</span></h3><ul class="list">${g.items.map(e=>{const c=eCents(e),mine=alloc(c,weights(e))[me]||0;
-    return `<li><button type="button" class="exp" data-act="edit" data-id="${esc(e.id)}">${av(e.paidBy)}<span class="ed"><b>${esc(e.desc)}</b><small>${esc(e.paidBy===me?'You':mname(e.paidBy))} paid · ${esc(splitLabel(e))}${mine?` · your part ${fc(mine)}`:''}${e.receipt?' · receipt':''}</small></span><span class="amt">${fc(c)}${e.cur!==home()?`<small>${esc(money(num(e.amount),e.cur))}</small>`:''}</span></button></li>`}).join('')}</ul>`).join('')}</section>`}
+    return `<li><button type="button" class="exp" data-act="edit" data-id="${esc(e.id)}">${av(e.paidBy)}<span class="ed"><b>${esc(e.desc)}</b><small>${esc(e.paidBy===me?'You':mname(e.paidBy))} paid, ${esc(splitLabel(e))}${e.receipt?', with receipt':''}</small></span><span class="amt">${fc(c)}${e.cur!==home()?`<small>${esc(money(num(e.amount),e.cur))}</small>`:''}${mine?`<small class="mine">yours ${fc(mine)}</small>`:''}</span></button></li>`}).join('')}</ul>`).join('')}</section>`}
 
 function settleView(){const {net}=calc(),me=S.me[S.tid],max=Math.max(1,...Object.values(net).map(Math.abs)),plan=settle(net);
   const who=id=>id===me?'You':mname(id);
   const bals=members().map(m=>{const n=net[m.id]||0;return `<button type="button" class="bal" data-act="who" data-id="${esc(m.id)}" aria-label="See ${esc(m.name)}'s breakdown"><span class="whois">${av(m.id,'sm')}${esc(m.name)}</span><div class="bar"><i class="${n>=0?'pos':'neg'}" style="width:${(Math.abs(n)/max*50).toFixed(1)}%"></i></div><span class="amt ${n>0?'pos':n<0?'neg':''}">${n>0?'+':n<0?'−':''}${fc(Math.abs(n))}</span></button>`}).join('');
   const pays=[...S.pay].sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
-  return `<section class="band"><div class="sec"><h2>Balances</h2><p class="hint" style="margin:-8px 0 8px">Blue means they're owed money. Red means they owe. Tap someone to see why.</p><div class="card">${bals}</div></div>
+  return `<section class="band"><div class="sec"><h2>Balances</h2><p class="hint" style="margin:-8px 0 8px">Green means they're owed money. Red means they owe. Tap someone to see why.</p><div class="card">${bals}</div></div>
   ${typeView()}<div class="sec"><h2>Payments to settle</h2>${plan.length?`<div class="card">${plan.map(p=>`<div class="pay"><span class="flow">${av(p.from,'sm')}<span class="arr">→</span>${av(p.to,'sm')}<span class="txt"><b>${esc(who(p.from))}</b> ${p.from===me?'pay':'pays'} <b>${esc(who(p.to))}</b></span></span><span class="amt">${fc(p.c)}</span>${payBox(p.to)}<button type="button" class="btn small teal" data-act="paid" data-from="${esc(p.from)}" data-to="${esc(p.to)}" data-c="${p.c}">Mark paid</button></div>`).join('')}</div><p class="hint" style="margin-top:8px">This is the fewest transfers that clears everyone.</p>`:`<div class="empty"><b>Everyone's square.</b></div>`}</div>
   ${pays.length?`<div class="sec"><h2>Payments made</h2><div class="card">${pays.map(p=>`<div class="pay"><span>${esc(who(p.from))} paid ${esc(who(p.to))}<small class="hint" style="display:block">${esc(fmtDate(p.date))}</small></span><span class="amt">${fc(num(p.cents))}</span><button type="button" class="btn small" data-act="unpay" data-id="${esc(p.id)}">Undo</button></div>`).join('')}</div></div>`:''}</section>`}
 
