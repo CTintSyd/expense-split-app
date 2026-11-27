@@ -203,6 +203,8 @@ function receiptBlock(){
   if(F.file)return `<div class="rprev"><img src="${esc(F.preview)}" alt="Receipt preview"><span class="scan ${F.scan==='busy'?'busy':''}">${F.scan==='busy'?'Reading the receipt…':F.scan==='done'?esc(F.scanMsg):F.scan==='fail'?esc(F.scanMsg)+` <button type="button" class="btn small" data-act="rescan">Try again</button>`:'Photo ready to save'}</span><button type="button" class="btn small danger" data-act="rmrc">Remove</button></div>`;
   if(F.receipt&&!F.drop)return `<div class="rprev"><span>Receipt attached</span><button type="button" class="btn small" data-act="receipt" data-id="${esc(F.id)}">View</button><button type="button" class="btn small danger" data-act="rmrc">Remove</button></div>`;
   return `<label class="btn file">Add receipt photo<input type="file" id="f-file" accept="image/*"></label>`}
+const SPLITHELP={equal:['Equal','Split evenly between the people you tick.',s=>`${s}90 fuel, 3 people → ${s}30 each`],items:['Items','Tick who had each item on the bill. Tips and surcharges are shared in proportion.',s=>`Your ${s}25 eggs + ${s}5 bacon → you pay ${s}30`],exact:['Amounts','Type exactly what each person owes.',s=>`Tickets: Kim ${s}120, Phil ${s}80`],nights:['Nights','Split by how many nights each person was there. Use dates or type the number.',s=>`${s}1,000 van: 10 nights → ${s}625, 6 nights → ${s}375`],percent:['%','Give each person a percentage. It must add up to 100.',s=>`Couple 50%, Kim 25%, Phil 25%`],shares:['Shares','Give each person a number of shares. Someone with 2 pays double.',s=>`${s}90: Kim 2 shares, Phil 1 → ${s}60 and ${s}30`]};
+function splitGuide(modes){const s=curSym(home());return `<div class="sguide" id="sguide"><div class="sgh"><b>How splitting works</b><button type="button" class="x" data-act="shelp" aria-label="Close the guide">×</button></div>${modes.map(([k])=>{const h=SPLITHELP[k];return `<div class="sgr${k===F.mode?' on':''}"><b>${esc(h[0])}</b> · ${esc(h[1])}<small>${esc(h[2](s))}</small></div>`}).join('')}</div>`}
 function renderForm(){const foreign=F.cur!==home(),modes=[['equal','Equal'],['items','Items'],['exact','Amounts'],...(F.mode==='shares'?[['shares','Shares']]:[]),['nights','Nights'],['percent','%']];
   $('#panel').innerHTML=`<div class="ph"><h2>${F.id?'Edit expense':'Add expense'}</h2><button type="button" class="x" data-act="close" aria-label="Close">×</button></div>
   <form id="ef" class="stackf" novalidate>
@@ -213,7 +215,7 @@ function renderForm(){const foreign=F.cur!==home(),modes=[['equal','Equal'],['it
     <label>What for?<input id="f-desc" maxlength="80" value="${esc(F.desc)}" placeholder="Fuel, dinner, Airbnb…"></label>
     <div class="two"><label>Paid by<select id="f-paid">${members().map(m=>`<option value="${esc(m.id)}"${m.id===F.paidBy?' selected':''}>${esc(m.name)}</option>`).join('')}</select></label>
       <label>Date<input id="f-date" type="date" value="${esc(F.date)}"></label></div>
-    <fieldset><legend>Split</legend><div class="seg">${modes.map(([k,l])=>`<button type="button" data-act="mode" data-mode="${k}" aria-pressed="${F.mode===k}">${l}</button>`).join('')}</div>${splitEditor()}<p class="hint" id="f-left"></p></fieldset>
+    <fieldset><legend class="slg">Split<button type="button" class="qb${F.help?' on':''}" data-act="shelp" aria-label="How splitting works" aria-expanded="${!!F.help}">?</button></legend>${F.help?splitGuide(modes):''}<div class="seg">${modes.map(([k,l])=>`<button type="button" data-act="mode" data-mode="${k}" aria-pressed="${F.mode===k}">${l}</button>`).join('')}</div><p class="mhint">${esc(SPLITHELP[F.mode]?.[1]||'')}</p>${splitEditor()}<p class="hint" id="f-left"></p></fieldset>
     ${receiptBlock()}
     <p class="err" id="f-err"></p>
     <div class="acts">${F.id?`<button type="button" class="btn danger" data-act="del">Delete</button>`:''}<button class="btn primary" id="f-save">${F.id?'Save changes':'Add expense'}</button></div>
@@ -349,6 +351,7 @@ document.addEventListener('click',async ev=>{
   else if(a==='iam'){S.me[S.tid]=id;store.set('rts-me',S.me);render()}
   else if(a==='notme'){delete S.me[S.tid];store.set('rts-me',S.me);render()}
   else if(a==='share')shareLink();
+  else if(a==='shelp'){F.help=!F.help;renderForm();if(F.help)$('#sguide')?.scrollIntoView({block:'nearest',behavior:'smooth'})}
   else if(a==='mode'){const m=b.dataset.mode;if(m===F.mode)return;F.mp=F.mp||{};if(F.mode!=='items')F.mp[F.mode]={...F.parts};F.mode=m;if(m==='items'){if(!F.items.length)F.items=[{n:'',p:num(F.amount)>0?String(num(F.amount)):'',who:[]}];F.extra='';renderForm();return}if(F.mp[m]){F.parts={...F.mp[m]};renderForm();return}const ms=members(),inc=ms.filter(x=>num(F.parts[x.id])>0),base=inc.length?inc:ms;
     F.parts=m==='exact'||m==='nights'?{}:m==='percent'?Object.fromEntries(base.map(x=>[x.id,String(Math.round(10000/base.length)/100)])):Object.fromEntries(base.map(x=>[x.id,1]));renderForm()}
   else if(a==='ndates'){if(F.pd[id])delete F.pd[id];else{F.pd[id]={f:F.nb.f||'',t:F.nb.t||''};const n=nDiff(F.pd[id].f,F.pd[id].t);if(n>0)F.parts[id]=String(n)}renderForm()}
