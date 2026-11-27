@@ -88,7 +88,7 @@ function homeView(){const list=Object.entries(S.recent).sort((a,b)=>(b[1].at||0)
 
 function splitLabel(e){const w=weights(e),n=Object.keys(w).length,m=e.split?.mode;
   if(m==='items'){const k=(e.split.items||[]).length;return `${k} item${k===1?'':'s'}`}
-  if(m==='exact')return 'exact amounts';if(m==='percent')return 'by %';if(m==='shares')return 'by shares';
+  if(m==='exact')return 'exact amounts';if(m==='percent')return 'by %';if(m==='shares')return 'by shares';if(m==='nights')return 'by nights';
   return n===members().length?'split with everyone':`split ${n} way${n===1?'':'s'}`}
 function expView(){if(!S.exp.length)return `<section class="band"><div class="empty"><h2>No expenses yet</h2><p class="muted">Tap <b>Add expense</b> when someone pays for fuel, food or a room.</p></div></section>`;
   const me=S.me[S.tid],rows=[...S.exp].sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.createdAt||0)-(a.createdAt||0)),days=[];
@@ -191,13 +191,14 @@ function itemTotals(r){const narrow=matchMedia('(max-width:600px)').matches,cv=v
 function splitEditor(){const ms=members();
   if(F.mode==='items')return itemsEditor();
   if(F.mode==='equal')return `<div class="chips">${ms.map(m=>`<button type="button" class="chip${num(F.parts[m.id])>0?' on':''}" data-act="tog" data-id="${esc(m.id)}" aria-pressed="${num(F.parts[m.id])>0}">${av(m.id,'xs')}${esc(m.name)}</button>`).join('')}</div><div class="quick"><button type="button" class="btn small" data-act="all">Everyone</button><button type="button" class="btn small" data-act="none">Clear</button></div>`;
+  if(F.mode==='nights')return `<div class="nfill"><label for="f-nall">Booking length</label><input id="f-nall" inputmode="numeric" placeholder="e.g. 14" aria-label="Nights in the booking"><button type="button" class="btn small" data-act="nfill">Fill everyone</button></div>`+ms.map(m=>`<div class="prow nrow"><span>${esc(m.name)}</span><span class="step"><button type="button" data-act="nstep" data-id="${esc(m.id)}" data-d="-1" aria-label="One less night for ${esc(m.name)}">−</button><input class="pin" data-id="${esc(m.id)}" inputmode="decimal" value="${esc(F.parts[m.id]??'')}" placeholder="0" aria-label="Nights for ${esc(m.name)}"><button type="button" data-act="nstep" data-id="${esc(m.id)}" data-d="1" aria-label="One more night for ${esc(m.name)}">+</button></span><em>nights</em></div>`).join('');
   const unit=F.mode==='exact'?F.cur:F.mode==='shares'?'shares':'%';
   return ms.map(m=>`<label class="prow"><span>${esc(m.name)}</span><input class="pin" data-id="${esc(m.id)}" inputmode="decimal" value="${esc(F.parts[m.id]??'')}" placeholder="0"><em>${esc(unit)}</em></label>`).join('')}
 function receiptBlock(){
   if(F.file)return `<div class="rprev"><img src="${esc(F.preview)}" alt="Receipt preview"><span class="scan ${F.scan==='busy'?'busy':''}">${F.scan==='busy'?'Reading the receipt…':F.scan==='done'?esc(F.scanMsg):F.scan==='fail'?esc(F.scanMsg)+` <button type="button" class="btn small" data-act="rescan">Try again</button>`:'Photo ready to save'}</span><button type="button" class="btn small danger" data-act="rmrc">Remove</button></div>`;
   if(F.receipt&&!F.drop)return `<div class="rprev"><span>Receipt attached</span><button type="button" class="btn small" data-act="receipt" data-id="${esc(F.id)}">View</button><button type="button" class="btn small danger" data-act="rmrc">Remove</button></div>`;
   return `<label class="btn file">Add receipt photo<input type="file" id="f-file" accept="image/*"></label>`}
-function renderForm(){const foreign=F.cur!==home(),modes=[['equal','Equal'],['items','Items'],['exact','Amounts'],['shares','Shares'],['percent','%']];
+function renderForm(){const foreign=F.cur!==home(),modes=[['equal','Equal'],['items','Items'],['exact','Amounts'],['shares','Shares'],['nights','Nights'],['percent','%']];
   $('#panel').innerHTML=`<div class="ph"><h2>${F.id?'Edit expense':'Add expense'}</h2><button type="button" class="x" data-act="close" aria-label="Close">×</button></div>
   <form id="ef" class="stackf" novalidate>
     <div class="amtrow"><label>Amount${F.mode==='items'?' <small>adds up the items</small>':''}<span class="amtw"><span class="asym" aria-hidden="true">${esc(curSym(F.cur))}</span><input id="f-amount" inputmode="decimal" value="${esc(F.amount)}" placeholder="0.00" autocomplete="off"${F.mode==='items'?' readonly class="ro" tabindex="-1"':''}></span></label>
@@ -223,6 +224,7 @@ function hints(){const conv=$('#f-conv'),left=$('#f-left');if(!conv)return;const
   else if(F.mode==='equal')t=cnt?`${cnt} ${cnt===1?'person':'people'}${tot>0?` · <b>${fc(Math.floor(tot/cnt))}</b> each`:''}`:'Pick who shares this';
   else if(F.mode==='exact'){const d=Math.round((a-sum)*100)/100;t=Math.abs(d)<0.005?'<b>All assigned</b>':d>0?`<b>${esc(money(d,F.cur))}</b> left to assign`:`<b>${esc(money(-d,F.cur))}</b> too much`}
   else if(F.mode==='percent'){const d=Math.round((100-sum)*100)/100;t=Math.abs(d)<0.005?'<b>Adds up to 100%</b>':d>0?`<b>${d}%</b> left`:`<b>${-d}%</b> over`}
+  else if(F.mode==='nights'){if(sum>0&&tot>0){const o=alloc(tot,Object.fromEntries(members().map(m=>[m.id,Math.max(0,num(F.parts[m.id]))])));t=members().filter(m=>o[m.id]).map(m=>`${esc(m.name)} <b>${fc(o[m.id])}</b>`).join(' · ')+`<br>${fc(Math.round(tot/sum))} per person per night · ${Math.round(sum*100)/100} nights across everyone`}else t='Enter how many nights each person used it (0 leaves them out)'}
   else if(sum>0&&tot>0){const o=alloc(tot,Object.fromEntries(members().map(m=>[m.id,Math.max(0,num(F.parts[m.id]))])));t=members().filter(m=>o[m.id]).map(m=>`${esc(m.name)} ${fc(o[m.id])}`).join(' · ')}
   else t='Give each person a number of shares (0 leaves them out)';
   left.innerHTML=t}
@@ -307,7 +309,7 @@ function showPerson(id){const me=S.me[S.tid],who=x=>x===me?'You':mname(x),cv=(v,
       its.forEach(x=>{const w=x.who||[];if(w.includes(id)){const part=num(x.p)/w.length;myItems+=part;lines.push(`<li${x.of!=null?' class="ao"':''}><span>${x.of!=null?'↳ ':''}${esc(x.n)}${w.length>1?` <small>${fracLabel(w.length)} of ${esc(cv(num(x.p),e.cur))}</small>`:''}</span><span>${esc(cv(part,e.cur))}</span></li>`)}});
       if(extra&&asum>0&&myItems>0)lines.push(`<li class="ex"><span>${extra>0?'Share of extras (surcharge, tip)':'Share of discount'}</span><span>${extra<0?'−':''}${esc(cv(Math.abs(myItems/asum*extra),e.cur))}</span></li>`);
       detail=lines.length?`<ul class="pitems">${lines.join('')}</ul>`:''}
-    else if(mine){const n=Object.keys(weights(e)).length,m=e.split?.mode;detail=`<p class="hint pnote">${m==='exact'?'Exact amounts':m==='shares'?'Split by shares':m==='percent'?'Split by %':n===members().length?`Split equally with everyone (${n})`:`Split equally ${n} ways`}</p>`}
+    else if(mine){const n=Object.keys(weights(e)).length,m=e.split?.mode;detail=`<p class="hint pnote">${m==='exact'?'Exact amounts':m==='shares'?'Split by shares':m==='nights'?(()=>{const w=weights(e),t=Object.values(w).reduce((a,v)=>a+v,0);return `By nights · ${w[id]} night${w[id]===1?'':'s'} of ${Math.round(t*100)/100} across everyone`})():m==='percent'?'Split by %':n===members().length?`Split equally with everyone (${n})`:`Split equally ${n} ways`}</p>`}
     rows.push(`<div class="pe"><div class="pe-h"><span><b>${esc(e.desc)}</b><small>${esc(fmtDate(e.date))}${payer?` · ${esc(who(id))} paid ${fc(c)}`:''}${e.cur!==home()?` · ${esc(money(num(e.amount),e.cur))}`:''}</small></span><span class="amt">${mine?fc(mine):'<small>not in it</small>'}</span></div>${detail}</div>`)}
   let sent=0,recv=0;for(const p of S.pay){if(p.from===id)sent+=num(p.cents);if(p.to===id)recv+=num(p.cents)}
   const n=net[id]||0,plan=settle(net).filter(p=>p.from===id||p.to===id);
@@ -341,7 +343,9 @@ document.addEventListener('click',async ev=>{
   else if(a==='notme'){delete S.me[S.tid];store.set('rts-me',S.me);render()}
   else if(a==='share')shareLink();
   else if(a==='mode'){const m=b.dataset.mode;if(m===F.mode)return;F.mode=m;if(m==='items'){if(!F.items.length)F.items=[{n:'',p:num(F.amount)>0?String(num(F.amount)):'',who:[]}];F.extra='';renderForm();return}const ms=members(),inc=ms.filter(x=>num(F.parts[x.id])>0),base=inc.length?inc:ms;
-    F.parts=m==='exact'?{}:m==='percent'?Object.fromEntries(base.map(x=>[x.id,String(Math.round(10000/base.length)/100)])):Object.fromEntries(base.map(x=>[x.id,1]));renderForm()}
+    F.parts=m==='exact'||m==='nights'?{}:m==='percent'?Object.fromEntries(base.map(x=>[x.id,String(Math.round(10000/base.length)/100)])):Object.fromEntries(base.map(x=>[x.id,1]));renderForm()}
+  else if(a==='nstep'){const v=Math.max(0,Math.round(num(F.parts[id]))+(+b.dataset.d));F.parts[id]=v?String(v):'';const inp=b.parentNode.querySelector('.pin');if(inp)inp.value=F.parts[id];hints()}
+  else if(a==='nfill'){const v=num($('#f-nall')?.value);if(!(v>0))return toast('Enter how many nights the booking is');for(const m of members())F.parts[m.id]=String(v);renderForm()}
   else if(a==='tog'){F.parts[id]=num(F.parts[id])>0?0:1;b.classList.toggle('on');b.setAttribute('aria-pressed',num(F.parts[id])>0);hints()}
   else if(a==='itog'){const i0=+b.dataset.i,it=F.items[i0];if(!it)return;const k=it.who.indexOf(id),on=k<0;on?it.who.push(id):it.who.splice(k,1);
     const paint=(j)=>{const x=F.items[j],btn=document.querySelector(`.cell[data-act="itog"][data-i="${j}"][data-id="${CSS.escape(id)}"]`);if(btn){btn.classList.toggle('on',x.who.includes(id));btn.setAttribute('aria-pressed',x.who.includes(id))}btn?.closest('tr')?.querySelector('.cell.all')?.classList.toggle('on',x.who.length===members().length)};
@@ -415,3 +419,5 @@ else{const app=initializeApp(cfg);S.app=app;
   try{S.fs=initializeFirestore(app,{localCache:persistentLocalCache({tabManager:persistentMultipleTabManager()})})}catch(e){S.fs=initializeFirestore(app,{})}
   route()}
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+
+document.addEventListener('keydown',ev=>{if(ev.key==='Enter'&&ev.target.id==='f-nall'){ev.preventDefault();document.querySelector('[data-act=nfill]')?.click()}});

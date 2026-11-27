@@ -98,7 +98,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--teal);bo
 #f-amount{font-size:28px;font-weight:800;letter-spacing:-.01em}
 fieldset{border:0;padding:0;margin:0;display:grid;gap:10px}
 legend{font-weight:700;font-size:14px;margin-bottom:6px}
-.seg{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));background:var(--soft);border-radius:14px;padding:4px;gap:2px}
+.seg{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));background:var(--soft);border-radius:14px;padding:4px;gap:2px}
 .seg button{border:0;background:none;font:700 13px Overpass,sans-serif;color:var(--muted);border-radius:10px;min-height:40px;cursor:pointer;padding:0 2px}
 .seg button[aria-pressed=true]{background:var(--card);color:var(--ink);box-shadow:var(--shadow)}
 .prow{display:grid;grid-template-columns:minmax(0,1fr) 110px 48px;align-items:center;gap:10px;font-weight:600}
@@ -460,6 +460,15 @@ button.bal .amt::after{content:"›";margin-left:8px;color:var(--muted);font-wei
 .plist li{counter-increment:ppl;grid-template-columns:22px minmax(0,1fr) 36px}
 .plist li::before{content:counter(ppl) ".";width:auto;height:auto;border-radius:0;background:none!important;color:var(--muted);font-weight:700;font-size:15px;font-variant-numeric:tabular-nums;justify-self:end}
 .plist li:first-child::before{color:var(--teal)}
+
+/* Split by nights */
+.nfill{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:10px;margin:12px 0 6px;font-weight:600}
+.nfill input{text-align:right}
+.nrow .step{display:grid;grid-template-columns:34px minmax(0,1fr) 34px;gap:4px;align-items:center}
+.nrow .step button{height:40px;border:0;border-radius:10px;background:var(--soft);color:var(--ink);font:700 18px Overpass,sans-serif;cursor:pointer}
+.nrow .step input{text-align:center;padding-left:2px;padding-right:2px}
+.prow.nrow{grid-template-columns:minmax(0,1fr) 140px 48px}
+@media(max-width:600px){.seg{grid-template-columns:repeat(3,minmax(0,1fr))}.prow.nrow{grid-template-columns:minmax(0,1fr) 128px 44px}}
 </style></head><body>
 <div class="sync" id="sync" hidden></div>
 <header class="top" id="top"></header>
