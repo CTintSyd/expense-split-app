@@ -664,6 +664,12 @@ input,select,textarea{border-width:1px;border-radius:10px;font-size:17px}
 body.selmode .fab{display:none!important}
 .btn.danger[disabled]{opacity:.5}
 .selbar .btn.danger{background:#e0383e;color:#fff;border-color:#e0383e}
+/* Select and Import chips */
+.imbar{gap:8px}
+.imbar .btn.chipb{display:inline-flex;align-items:center;gap:6px;min-height:34px;padding:0 13px;border-radius:999px;border:0;font-size:15px;font-weight:600}
+.imbar .btn.chipb[data-act=sel-on]{background:var(--card);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line)}
+.imbar .btn.chipb[data-act=imx-open]{background:var(--ochre);color:#fff}
+.imbar .btn.chipb:active{transform:scale(.97)}
 </style></head><body>
 <div class="sync" id="sync" hidden></div>
 <header class="top" id="top"></header>
