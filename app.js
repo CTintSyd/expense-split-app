@@ -438,7 +438,7 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(
 document.addEventListener('keydown',ev=>{if(ev.key==='Enter'&&ev.target.id==='f-nall'){ev.preventDefault();document.querySelector('[data-act=nfill]')?.click()}});
 
 // ---- Import many expenses at once: a bank CSV/Excel export, or photos/screenshots of a transaction list ----
-let IM=null;
+var IM=null;
 const IM_MAX=300;
 function imOpen(){const me=S.me[S.tid];IM={step:'pick',rows:[],cur:home(),rate:'',paidBy:me,who:Object.fromEntries(members().map(m=>[m.id,1])),busy:'',err:'',srcs:[]};$('#sheet').hidden=false;imRender()}
 const imTitle=s=>{s=String(s||'').replace(/\s+/g,' ').trim();if(s&&s===s.toUpperCase()&&/[A-Z]{3}/.test(s))s=s.toLowerCase().replace(/(^|[\s\-\/&(.'])([a-z])/g,(m,a,b)=>a+b.toUpperCase());return s};
