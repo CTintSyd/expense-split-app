@@ -620,6 +620,16 @@ input,select,textarea{border-width:1px;border-radius:10px;font-size:17px}
 .sw.on{box-shadow:0 0 0 2px var(--card),0 0 0 4px var(--sw)}
 .look .hint{margin:0}
 .swatches{gap:8px}.sw{width:32px;height:32px}
+/* Home header: the road at night, or your own photo */
+.top.home{color:#fff;background:var(--sky1);position:relative;overflow:hidden;min-height:0}
+.top.home .scene{display:block}
+.top.home .topin{position:relative;z-index:1;min-height:230px;padding-bottom:20px}
+.top.home h1{color:#fff;font-size:34px}
+.top.home .sub{color:rgba(255,255,255,.9);max-width:26em}
+.top.home.hasimg::after{content:"";position:absolute;inset:0;z-index:0;background:linear-gradient(to bottom,rgba(0,0,0,.5),rgba(0,0,0,.1) 55%,rgba(0,0,0,.35))}
+.hpics{position:absolute;z-index:2;right:max(5vw,16px);bottom:12px;display:flex;gap:6px}
+.hpic{position:relative;display:inline-flex;align-items:center;gap:6px;background:rgba(0,0,0,.38);color:#fff;border:0;border-radius:10px;padding:6px 10px;font-size:13px;font-weight:600;cursor:pointer;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.hpic input{position:absolute;inset:0;opacity:0;cursor:pointer}
 </style></head><body>
 <div class="sync" id="sync" hidden></div>
 <header class="top" id="top"></header>

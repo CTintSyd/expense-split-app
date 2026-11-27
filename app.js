@@ -29,6 +29,13 @@ const members=()=>S.trip?.members||[];
 const mname=id=>members().find(m=>m.id===id)?.name||'Someone';
 const home=()=>S.trip?.home||'AUD';
 const fc=c=>money(c/100,home(),true);
+const homePic={get(){try{return localStorage.getItem('es-homepic')||''}catch(e){return ''}},set(v){try{if(v)localStorage.setItem('es-homepic',v);else localStorage.removeItem('es-homepic');return true}catch(e){return false}}};
+function paintHome(el){const pic=homePic.get();el.className='top home'+(pic?' hasimg':'');el.style.removeProperty('--tc');
+  el.innerHTML=(pic?`<img class="covimg" src="${pic}" alt="">`:SCENE)+`<div class="topin"><h1>Expenses Split</h1><p class="sub">Everyone adds what they paid, and it works out who owes whom.</p></div><div class="hpics"><label class="hpic"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.5" fill="none" stroke="currentColor" stroke-width="2"/></svg>${pic?'Change photo':'Use my photo'}<input type="file" accept="image/*" id="hpic-file"></label>${pic?'<button type="button" class="hpic" data-act="hpic-reset">Back to the road</button>':''}</div>`}
+document.addEventListener('click',ev=>{const b=ev.target.closest?.('[data-act="hpic-reset"]');if(!b)return;homePic.set('');renderTop()});
+document.addEventListener('change',async ev=>{const t=ev.target;if(t.id!=='hpic-file'||!t.files?.[0])return;const f=t.files[0];t.value='';
+  try{let d=await toData(await shrink(f,1400,.72));if(d.length>1500000)d=await toData(await shrink(f,1000,.6));if(!homePic.set(d))throw new Error("this browser won't save it");renderTop();toast('Header photo updated')}
+  catch(e){toast("Couldn't use that photo: "+(e?.message||'try another'))}});
 // ---- Trip colour and cover photo ----
 const TCOL=[['#2f6fde','Blue'],['#e0673a','Orange'],['#2e9d6a','Green'],['#8a5cd1','Purple'],['#d4477a','Pink'],['#14919f','Teal'],['#c48a1c','Gold'],['#47546e','Slate']];
 const tColor=(t,id)=>{if(/^#[0-9a-f]{6}$/i.test(t?.color||''))return t.color;let h=0;for(const c of String(id||''))h=(h*31+c.charCodeAt(0))>>>0;return TCOL[h%TCOL.length][0]};
@@ -90,7 +97,7 @@ function renderTop(){const t=$('#top');
     const lab=!me?'Trip total':n>0?"You're owed":n<0?'You owe':"You're all square";
     paintTop(t,'./');
     $('#hcard').innerHTML=`<p class="bal1"><span>${lab}</span><b class="big ${me&&n>0?'pos':me&&n<0?'neg':''}">${fc(me?Math.abs(n):spent)}</b></p><p class="bal2">${me?`Your share is ${fc(share[me]||0)} of ${fc(spent)} spent`:`${fc(spent)} spent`} across ${S.exp.length} expense${S.exp.length===1?'':'s'}.</p>`;$('#hcard').hidden=false;
-  }else{t.className='top';t.style.removeProperty('--tc');t.innerHTML=`<div class="topin"><h1>Expenses Split</h1><p class="sub">Everyone adds what they paid, and it works out who owes whom.</p></div>`;$('#hcard').hidden=true}}
+  }else{paintHome(t);$('#hcard').hidden=true}}
 
 function render(){renderTop();syncBadge();const a=$('#app'),fab=$('#fab');fab.hidden=true;
   if(S.setup){a.innerHTML=`<section class="band"><div class="empty"><h2>Almost ready</h2><p class="muted">Paste your Firebase config into <b>firebase-config.js</b>, then upload the folder again.</p></div></section>`;return}
