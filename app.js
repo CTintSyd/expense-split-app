@@ -48,13 +48,14 @@ const tileFor=(id,t)=>`<span class="tico" style="--tc:${tColor(t,id)}" aria-hidd
 function paintTop(el,back){const c=tColor(S.trip,S.tid),cv=coverFor(S.tid,S.trip);el.className='top tm'+(cv?' hasimg':'');el.style.setProperty('--tc',c);
   el.innerHTML=`${cv?`<img class="covimg" src="${cv}" alt="">`:''}<div class="topin"><a class="back" href="${back}">All trips</a><h1>${esc(S.trip.name)}</h1></div>`}
 function lookView(){const t=S.trip,c=tColor(t,S.tid),cv=coverFor(S.tid,t),w=S.canWrite!==false;
-  return `<div class="sec"><h2>Cover and colour</h2><div class="card look"><div class="lkprev" style="--tc:${c}">${cv?`<img src="${cv}" alt="Cover photo">`:''}<b>${esc(t.name)}</b></div>
+  return `<div class="sec"><h2>Name, cover and colour</h2><div class="card look">${w?`<form class="tnrow" id="tn-form"><input id="tn-name" value="${esc(t.name)}" maxlength="60" aria-label="Trip or group name" required><button class="btn small">Save name</button></form>`:''}<div class="lkprev" style="--tc:${c}">${cv?`<img src="${cv}" alt="Cover photo">`:''}<b>${esc(t.name)}</b></div>
     ${w?`<div class="lkrow"><label class="btn small file" id="cov-btn">${t.cover?'Change photo':'Add a cover photo'}<input type="file" accept="image/*" id="cov-file"></label>${t.cover?'<button type="button" class="btn small danger" data-act="cov-rm">Remove photo</button>':''}</div>
     <div class="swatches" role="radiogroup" aria-label="Trip colour">${TCOL.map(([h,n])=>`<button type="button" class="sw${h===c?' on':''}" style="--sw:${h}" data-act="cov-col" data-c="${h}" role="radio" aria-checked="${h===c}" aria-label="${n}"></button>`).join('')}</div>
     <p class="hint">The colour shows behind the trip name when there's no photo.</p>`:''}</div></div>`}
 document.addEventListener('click',async ev=>{const b=ev.target.closest?.('[data-act]');if(!b||!S.trip)return;const a=b.dataset.act;
   if(a==='cov-col'){await tripSave({color:b.dataset.c});render()}
   else if(a==='cov-rm'){const tid=S.tid;try{await covDel(tid)}catch(e){}COV[tid]={at:0,data:''};await tripSave({cover:0,thumb:''});toast('Cover photo removed');render()}});
+document.addEventListener('submit',async ev=>{if(ev.target.id!=='tn-form')return;ev.preventDefault();ev.stopImmediatePropagation();const v=($('#tn-name')?.value||'').trim();if(!v)return toast('Enter a name');if(v===S.trip.name)return toast('Name saved');await tripSave({name:v});logAct(`renamed the trip to ${v}`);toast('Name saved');render()},true);
 document.addEventListener('change',async ev=>{const t=ev.target;if(t.id!=='cov-file'||!t.files?.[0]||!S.trip)return;const f=t.files[0],tid=S.tid,lb=$('#cov-btn');t.value='';
   if(lb)lb.firstChild.textContent='Adding photo…';
   try{let b=await shrink(f,1600,.75);if(b.size>520000)b=await shrink(f,1200,.65);if(b.size>520000)b=await shrink(f,900,.55);const data=await toData(b),thumb=await toData(await shrink(f,160,.7));

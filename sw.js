@@ -1,5 +1,5 @@
 // Keeps the app itself loading with no signal. Trip data is handled by Firebase's own offline cache.
-const CACHE = 'rts-v52';
+const CACHE = 'rts-v53';
 const SHELL = ['./', './index.html', './firebase-config.js', './app.js', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
