@@ -489,6 +489,9 @@ button.bal .amt::after{content:"›";margin-left:8px;color:var(--muted);font-wei
 .nbook .hint.nbadt{color:#c0392b}
 .seg{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr)}
 @media(max-width:600px){.seg{grid-template-columns:none;grid-auto-flow:column}}
+.prow.nrow{grid-template-columns:minmax(0,1fr) auto 128px 40px}
+.ncost{font-size:15px;font-weight:700;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+@media(max-width:600px){.prow.nrow{grid-template-columns:minmax(0,1fr) auto 112px 36px;gap:8px}.ncost{font-size:14px}.nrow .step{grid-template-columns:30px minmax(0,1fr) 30px}.ncal{width:36px}}
 </style></head><body>
 <div class="sync" id="sync" hidden></div>
 <header class="top" id="top"></header>
