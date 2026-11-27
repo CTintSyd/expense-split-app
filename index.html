@@ -443,6 +443,18 @@ button.bal .amt::after{content:"›";margin-left:8px;color:var(--muted);font-wei
 .lgr .av{margin-top:1px}
 .lgr small{display:block;color:var(--muted);font-size:12px}
 @media(max-width:600px){.ttab{font-size:12px}.ttab th,.ttab td{padding:6px 4px}.qtb{padding:6px 10px;font-size:12px}}
+/* Who's coming list + trip card fix */
+.ppl{display:grid;gap:8px}
+.ppl legend{font-weight:700;font-size:14px;margin-bottom:6px}.ppl legend small{font-weight:400;color:var(--muted)}
+.plist{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.plist li{display:grid;grid-template-columns:14px minmax(0,1fr) 36px;align-items:center;gap:6px}
+.plist li::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--muted);justify-self:center}
+.plist li:first-child::before{background:var(--teal)}
+.plist .x{width:36px;height:40px;font-size:22px}
+.ppl>.btn{justify-self:start}
+.trip .tico{grid-column:1;grid-row:1/span 2}
+.trip b{grid-column:2;grid-row:1}
+.trip span:not(.tico):not(.cur){grid-row:2}
 </style></head><body>
 <div class="sync" id="sync" hidden></div>
 <header class="top" id="top"></header>

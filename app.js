@@ -75,13 +75,15 @@ function render(){renderTop();syncBadge();const a=$('#app'),fab=$('#fab');fab.hi
     (S.tab==='exp'?expView():S.tab==='settle'?settleView():tripView());
   fab.hidden=S.tab==='trip'}
 
+const pRow=first=>`<li><input name="members" maxlength="30" placeholder="${first?'Your name':'Name'}" autocomplete="off" aria-label="${first?'Your name':'Person'}"><button type="button" class="x" data-act="prm" aria-label="Remove">×</button></li>`;
+function addPerson(after){const ul=$('#plist');if(!ul)return;const t=document.createElement('template');t.innerHTML=pRow(false);const li=t.content.firstChild;after?after.after(li):ul.append(li);li.querySelector('input').focus()}
 function homeView(){const list=Object.entries(S.recent).sort((a,b)=>(b[1].at||0)-(a[1].at||0)).map(([id,t])=>`<a class="trip" href="?trip=${esc(id)}"><span class="tico" aria-hidden="true"></span><b>${esc(t.name||'Trip')}</b><span>${esc(t.people||'')}</span><span class="cur">${esc(t.home||'')}</span></a>`).join('');
   return `<section class="band"><h2>Your trips</h2>${list||'<p class="muted">Trips you open on this phone show up here.</p>'}
     <form id="join" class="inline" style="margin-top:12px"><input name="code" placeholder="Paste a trip link" aria-label="Trip link" autocomplete="off"><button class="btn">Open</button></form></section>
   <section class="band"><h2>Start a trip</h2><form id="newtrip" class="stackf">
     <label>Trip name<input name="name" required maxlength="60" placeholder="Great Ocean Road"></label>
     <label>Home currency <small>Everything is settled in this</small><select name="home">${CURS.map(c=>`<option${c==='AUD'?' selected':''}>${c}</option>`).join('')}</select></label>
-    <label>Who's coming? <small>Your name first. Separate names with commas or new lines.</small><textarea name="members" rows="3" required placeholder="Alex, Sam, Jordan, Priya"></textarea></label>
+    <fieldset class="ppl"><legend>Who's coming? <small>Your name first, then everyone else.</small></legend><ul class="plist" id="plist">${[0,1,2].map(i=>pRow(i===0)).join('')}</ul><button type="button" class="btn small" data-act="padd">+ Add person</button></fieldset>
     <button class="btn primary">Create trip</button></form></section>`}
 
 function splitLabel(e){const w=weights(e),n=Object.keys(w).length,m=e.split?.mode;
@@ -328,6 +330,8 @@ async function shareLink(){const url=tripUrl(S.tid);
 document.addEventListener('click',async ev=>{
   if(ev.target.id==='sheet'){closeSheet();return}
   const b=ev.target.closest('[data-act]');if(!b)return;const a=b.dataset.act,id=b.dataset.id;
+  if(a==='padd')return addPerson();
+  if(a==='prm'){const ul=$('#plist'),li=b.closest('li');if(ul&&li){if(ul.children.length>1)li.remove();else li.querySelector('input').value=''}return}
   if(a==='add')openForm();
   else if(a==='edit'){const e=S.exp.find(x=>x.id===id);if(e)openForm(e)}
   else if(a==='close')closeSheet();
@@ -381,7 +385,7 @@ document.addEventListener('submit',ev=>{ev.preventDefault();const f=ev.target,fd
   if(f.id==='ef')return saveExpense();
   if(f.id==='join'){const v=String(fd.get('code')||'').trim(),m=/trip=([a-z0-9]{20,})/.exec(v)||/^([a-z0-9]{20,})$/.exec(v);if(!m)return toast("That doesn't look like a trip link");location.search='?trip='+m[1];return}
   if(f.id==='newtrip'){const name=String(fd.get('name')||'').trim(),seen=new Set();
-    const ms=String(fd.get('members')||'').split(/[\n,]+/).map(s=>s.trim().slice(0,30)).filter(s=>s&&!seen.has(s.toLowerCase())&&seen.add(s.toLowerCase())).slice(0,30).map(n=>({id:rid(8),name:n}));
+    const ms=fd.getAll('members').join('\n').split(/[\n,]+/).map(s=>s.trim().slice(0,30)).filter(s=>s&&!seen.has(s.toLowerCase())&&seen.add(s.toLowerCase())).slice(0,30).map(n=>({id:rid(8),name:n}));
     if(!name||!ms.length)return toast('Add a trip name and at least one person');
     const tid=rid(22),hc=String(fd.get('home')||'AUD');
     put('trips/'+tid,{name:name.slice(0,60),home:hc,members:ms,rates:{},createdAt:Date.now()});
@@ -390,7 +394,7 @@ document.addEventListener('submit',ev=>{ev.preventDefault();const f=ev.target,fd
   if(f.id==='addmem'){const n=String(fd.get('n')||'').trim().slice(0,30);if(!n)return;if(members().some(m=>m.name.toLowerCase()===n.toLowerCase()))return toast('Already on the trip');tripSave({members:[...members(),{id:rid(8),name:n}]});logAct(`added ${n} to the trip`);toast(n+' added')}
   if(f.id==='addrate'){const c=String(fd.get('c')||''),r=num(fd.get('r'));if(!c||!(r>0))return toast('Enter a rate above 0');tripSave({rates:{...(S.trip.rates||{}),[c]:r}});toast(c+' added')}
 });
-document.addEventListener('keydown',ev=>{if(ev.key==='Escape'&&!$('#sheet').hidden)closeSheet()});
+document.addEventListener('keydown',ev=>{if(ev.key==='Enter'&&ev.target.closest?.('#plist')){ev.preventDefault();addPerson(ev.target.closest('li'));return}if(ev.key==='Escape'&&!$('#sheet').hidden)closeSheet()});
 window.addEventListener('online',syncBadge);window.addEventListener('offline',syncBadge);
 
 function subLog(tid){if(S.tid!==tid)return;listen('log',query(collection(S.fs,`trips/${tid}/log`),orderBy('t','desc'),limit(40)),s=>{S.log=s.docs.map(d=>({...d.data(),id:d.id})).sort((x,y)=>(y.t||0)-(x.t||0));if(S.tab==='trip')render()})}
