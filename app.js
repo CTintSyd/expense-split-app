@@ -349,7 +349,7 @@ document.addEventListener('click',async ev=>{
   else if(a==='iam'){S.me[S.tid]=id;store.set('rts-me',S.me);render()}
   else if(a==='notme'){delete S.me[S.tid];store.set('rts-me',S.me);render()}
   else if(a==='share')shareLink();
-  else if(a==='mode'){const m=b.dataset.mode;if(m===F.mode)return;F.mode=m;if(m==='items'){if(!F.items.length)F.items=[{n:'',p:num(F.amount)>0?String(num(F.amount)):'',who:[]}];F.extra='';renderForm();return}const ms=members(),inc=ms.filter(x=>num(F.parts[x.id])>0),base=inc.length?inc:ms;
+  else if(a==='mode'){const m=b.dataset.mode;if(m===F.mode)return;F.mp=F.mp||{};if(F.mode!=='items')F.mp[F.mode]={...F.parts};F.mode=m;if(m==='items'){if(!F.items.length)F.items=[{n:'',p:num(F.amount)>0?String(num(F.amount)):'',who:[]}];F.extra='';renderForm();return}if(F.mp[m]){F.parts={...F.mp[m]};renderForm();return}const ms=members(),inc=ms.filter(x=>num(F.parts[x.id])>0),base=inc.length?inc:ms;
     F.parts=m==='exact'||m==='nights'?{}:m==='percent'?Object.fromEntries(base.map(x=>[x.id,String(Math.round(10000/base.length)/100)])):Object.fromEntries(base.map(x=>[x.id,1]));renderForm()}
   else if(a==='ndates'){if(F.pd[id])delete F.pd[id];else{F.pd[id]={f:F.nb.f||'',t:F.nb.t||''};const n=nDiff(F.pd[id].f,F.pd[id].t);if(n>0)F.parts[id]=String(n)}renderForm()}
   else if(a==='nstep'){if(F.pd[id])delete F.pd[id];const v=Math.max(0,Math.round(num(F.parts[id]))+(+b.dataset.d));F.parts[id]=v?String(v):'';if(b.closest('.nper.open')){renderForm();return}const inp=b.parentNode.querySelector('.pin');if(inp)inp.value=F.parts[id];hints()}
