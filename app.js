@@ -82,7 +82,7 @@ function homeView(){const list=Object.entries(S.recent).sort((a,b)=>(b[1].at||0)
   return `<section class="band"><h2>Your trips, groups and expenses</h2>${list||'<p class="muted">Trips, groups and expenses you open on this phone show up here.</p>'}
     <form id="join" class="inline" style="margin-top:12px"><input name="code" placeholder="Paste a trip link" aria-label="Trip link" autocomplete="off"><button class="btn">Open</button></form></section>
   <section class="band"><h2>Start a trip, group or expense</h2><form id="newtrip" class="stackf">
-    <label>Name<input name="name" required maxlength="60" placeholder="Japan snow trip, share house, Friday dinner"></label>
+    <label>Name<input name="name" required maxlength="60" placeholder="Japan snow trip, share house"></label>
     <label>Home currency <small>Everything is settled in this</small><select name="home">${CURS.map(c=>`<option${c==='AUD'?' selected':''}>${c}</option>`).join('')}</select></label>
     <fieldset class="ppl"><legend>Who's coming? <small>Your name first, then everyone else.</small></legend><ul class="plist" id="plist">${[0,1,2].map(i=>pRow(i===0)).join('')}</ul><button type="button" class="btn small" data-act="padd">+ Add person</button></fieldset>
     <button class="btn primary">Create trip</button></form></section>`}
