@@ -80,10 +80,10 @@ function render(){renderTop();syncBadge();const a=$('#app'),fab=$('#fab');fab.hi
 const pRow=first=>`<li><input name="members" maxlength="30" placeholder="${first?'Your name':'Name'}" autocomplete="off" aria-label="${first?'Your name':'Person'}"><button type="button" class="x" data-act="prm" aria-label="Remove">×</button></li>`;
 function addPerson(after){const ul=$('#plist');if(!ul)return;const t=document.createElement('template');t.innerHTML=pRow(false);const li=t.content.firstChild;after?after.after(li):ul.append(li);li.querySelector('input').focus()}
 function homeView(){const list=Object.entries(S.recent).sort((a,b)=>(b[1].at||0)-(a[1].at||0)).map(([id,t])=>`<a class="trip" href="?trip=${esc(id)}"><span class="tico" aria-hidden="true"></span><b>${esc(t.name||'Trip')}</b><span>${esc(t.people||'')}</span><span class="cur">${esc(t.home||'')}</span></a>`).join('');
-  return `<section class="band"><h2>Your trips</h2>${list||'<p class="muted">Trips you open on this phone show up here.</p>'}
+  return `<section class="band"><h2>Your trips and groups</h2>${list||'<p class="muted">Trips and groups you open on this phone show up here.</p>'}
     <form id="join" class="inline" style="margin-top:12px"><input name="code" placeholder="Paste a trip link" aria-label="Trip link" autocomplete="off"><button class="btn">Open</button></form></section>
-  <section class="band"><h2>Start a trip</h2><form id="newtrip" class="stackf">
-    <label>Trip name<input name="name" required maxlength="60" placeholder="Great Ocean Road"></label>
+  <section class="band"><h2>Start a trip or group</h2><form id="newtrip" class="stackf">
+    <label>Name<input name="name" required maxlength="60" placeholder="Japan snow trip, share house, Friday dinners"></label>
     <label>Home currency <small>Everything is settled in this</small><select name="home">${CURS.map(c=>`<option${c==='AUD'?' selected':''}>${c}</option>`).join('')}</select></label>
     <fieldset class="ppl"><legend>Who's coming? <small>Your name first, then everyone else.</small></legend><ul class="plist" id="plist">${[0,1,2].map(i=>pRow(i===0)).join('')}</ul><button type="button" class="btn small" data-act="padd">+ Add person</button></fieldset>
     <button class="btn primary">Create trip</button></form></section>`}
@@ -92,7 +92,7 @@ function splitLabel(e){const w=weights(e),n=Object.keys(w).length,m=e.split?.mod
   if(m==='items'){const k=(e.split.items||[]).length;return `${k} item${k===1?'':'s'}`}
   if(m==='exact')return 'exact amounts';if(m==='percent')return 'by %';if(m==='shares')return 'by shares';if(m==='nights')return 'by nights';
   return n===members().length?'split with everyone':`split ${n} way${n===1?'':'s'}`}
-function expView(){if(!S.exp.length)return `<section class="band"><div class="empty"><h2>No expenses yet</h2><p class="muted">Tap <b>Add expense</b> when someone pays for fuel, food or a room.</p><button type="button" class="btn" data-act="imx-open" style="margin-top:14px">Import from a screenshot or bank file</button></div></section>`;
+function expView(){if(!S.exp.length)return `<section class="band"><div class="empty"><h2>No expenses yet</h2><p class="muted">Tap <b>Add expense</b> when someone pays for something shared, like food, transport, a room or bills.</p><button type="button" class="btn" data-act="imx-open" style="margin-top:14px">Import from a screenshot or bank file</button></div></section>`;
   const me=S.me[S.tid],rows=[...S.exp].sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.createdAt||0)-(a.createdAt||0)),days=[];
   for(const e of rows){const d=e.date||'';if(!days.length||days[days.length-1].d!==d)days.push({d,items:[]});days[days.length-1].items.push(e)}
   return `<section class="band"><div class="imbar"><button type="button" class="btn small" data-act="imx-open"><span aria-hidden="true">⇪</span> Import</button></div>${days.map(g=>`<h3 class="day"><span>${esc(fmtDate(g.d))}</span><span>${fc(g.items.reduce((s,e)=>s+eCents(e),0))}</span></h3><ul class="list">${g.items.map(e=>{const c=eCents(e),mine=alloc(c,weights(e))[me]||0;
@@ -212,7 +212,7 @@ function renderForm(){const foreign=F.cur!==home(),modes=[['equal','Equal'],['it
       <label>Currency<select id="f-cur">${curOptions().map(c=>`<option${c===F.cur?' selected':''}>${esc(c)}</option>`).join('')}</select></label></div>
     ${foreign?`<label>Exchange rate <small>1 ${esc(F.cur)} = how many ${esc(home())}?</small><input id="f-rate" inputmode="decimal" value="${esc(F.rate)}" placeholder="e.g. 0.21"></label>`:''}
     <p class="hint" id="f-conv"></p>
-    <label>What for?<input id="f-desc" maxlength="80" value="${esc(F.desc)}" placeholder="Fuel, dinner, Airbnb…"></label>
+    <label>What for?<input id="f-desc" maxlength="80" value="${esc(F.desc)}" placeholder="Dinner, fuel, Airbnb, groceries…"></label>
     <div class="two"><label>Paid by<select id="f-paid">${members().map(m=>`<option value="${esc(m.id)}"${m.id===F.paidBy?' selected':''}>${esc(m.name)}</option>`).join('')}</select></label>
       <label>Date<input id="f-date" type="date" value="${esc(F.date)}"></label></div>
     <fieldset><legend class="slg">Split<button type="button" class="qb${F.help?' on':''}" data-act="shelp" aria-label="How splitting works" aria-expanded="${!!F.help}">?</button></legend>${F.help?splitGuide(modes):''}<div class="seg">${modes.map(([k,l])=>`<button type="button" data-act="mode" data-mode="${k}" aria-pressed="${F.mode===k}">${l}</button>`).join('')}</div><p class="mhint">${esc(SPLITHELP[F.mode]?.[1]||'')}</p>${splitEditor()}<p class="hint" id="f-left"></p></fieldset>
