@@ -1,4 +1,4 @@
-# Road Trip Split: setup (about 20 minutes, once)
+# Expenses Split: setup (about 20 minutes, once)
 
 Do this on a computer. It's free, and no credit card is needed.
 

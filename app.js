@@ -64,7 +64,7 @@ function renderTop(){const t=$('#top');
     t.className='top tm';t.innerHTML=SCENE+`<div class="topin"><a class="back" href="./">All trips</a><h1>${esc(S.trip.name)}</h1></div>`;
     $('#hcard').innerHTML=`<div><div><div class="lab">${lab}</div><div class="big ${me&&n>0?'pos':me&&n<0?'neg':''}">${fc(me?Math.abs(n):spent)}</div></div>
       <dl class="mini"><div><dt>Trip total</dt><dd>${fc(spent)}</dd></div>${me?`<div><dt>Your share</dt><dd>${fc(share[me]||0)}</dd></div>`:''}<div><dt>Expenses</dt><dd>${S.exp.length}</dd></div></dl></div>`;$('#hcard').hidden=false;
-  }else{t.className='top';t.innerHTML=SCENE+`<div class="topin"><h1>Road Trip Split</h1><p class="sub">Everyone adds what they paid. The app works out who owes whom.</p></div>`;$('#hcard').hidden=true}}
+  }else{t.className='top';t.innerHTML=SCENE+`<div class="topin"><h1>Expenses Split</h1><p class="sub">Everyone adds what they paid. The app works out who owes whom.</p></div>`;$('#hcard').hidden=true}}
 
 function render(){renderTop();syncBadge();const a=$('#app'),fab=$('#fab');fab.hidden=true;
   if(S.setup){a.innerHTML=`<section class="band"><div class="empty"><h2>Almost ready</h2><p class="muted">Paste your Firebase config into <b>firebase-config.js</b>, then upload the folder again.</p></div></section>`;return}

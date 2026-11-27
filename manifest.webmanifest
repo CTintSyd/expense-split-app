@@ -1,6 +1,6 @@
 {
-  "name": "Road Trip Split",
-  "short_name": "Trip Split",
+  "name": "Expenses Split",
+  "short_name": "Expenses Split",
   "description": "Share road trip expenses with friends. Everyone adds what they paid.",
   "display": "standalone",
   "background_color": "#f2f5fa",
