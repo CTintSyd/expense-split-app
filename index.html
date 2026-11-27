@@ -469,6 +469,23 @@ button.bal .amt::after{content:"›";margin-left:8px;color:var(--muted);font-wei
 .nrow .step input{text-align:center;padding-left:2px;padding-right:2px}
 .prow.nrow{grid-template-columns:minmax(0,1fr) 140px 48px}
 @media(max-width:600px){.seg{grid-template-columns:repeat(3,minmax(0,1fr))}.prow.nrow{grid-template-columns:minmax(0,1fr) 128px 44px}}
+
+/* Nights by dates */
+.nbook{margin:12px 0 0}
+.nbl{display:block;font-weight:600;margin-bottom:6px}.nbl small{font-weight:500;color:var(--muted)}
+.ndr{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:8px}
+.ndr span{color:var(--muted);font-weight:700}
+.ndr input{min-width:0;font-size:15px}
+#f-nbh:empty,.nbook .hint:empty{display:none}
+.nbook .hint{margin:6px 0 0}
+.prow.nrow{grid-template-columns:minmax(0,1fr) 128px 40px}
+.nrow>span:first-child{display:flex;flex-direction:column;min-width:0}
+.nds{font-weight:500;color:var(--muted);font-size:13px}
+.ncal{width:40px;height:40px;border:0;border-radius:10px;background:var(--soft);color:var(--muted);display:grid;place-items:center;cursor:pointer}
+.ncal.on{background:var(--ink);color:#fff}
+.pdr{margin:2px 0 8px}
+.nbad{color:#c0392b;margin:0 0 8px}
+@media(max-width:600px){.prow.nrow{grid-template-columns:minmax(0,1fr) 120px 40px}.ndr input{font-size:14px;padding-left:8px;padding-right:8px}}
 </style></head><body>
 <div class="sync" id="sync" hidden></div>
 <header class="top" id="top"></header>

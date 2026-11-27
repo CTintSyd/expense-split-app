@@ -42,6 +42,7 @@ function settle(net){const cr=[],dr=[];for(const k in net){if(net[k]>0)cr.push([
   cr.sort((a,b)=>b[1]-a[1]);dr.sort((a,b)=>b[1]-a[1]);const out=[];let i=0,j=0;
   while(i<dr.length&&j<cr.length){const x=Math.min(dr[i][1],cr[j][1]);if(x>0)out.push({from:dr[i][0],to:cr[j][0],c:x});dr[i][1]-=x;cr[j][1]-=x;if(!dr[i][1])i++;if(!cr[j][1])j++}
   return out}
+const nDiff=(f,t)=>f&&t?Math.round((Date.parse(t+'T00:00Z')-Date.parse(f+'T00:00Z'))/864e5):NaN,dShort=d=>{try{return new Date(d+'T00:00').toLocaleDateString('en-AU',{day:'numeric',month:'short'})}catch(e){return d}};
 const fmtDate=d=>{try{return new Date(d+'T00:00').toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short'})}catch(e){return d}};
 function toast(t){const el=$('#toast');el.textContent=t;el.classList.remove('act');el.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>el.classList.remove('show'),2800)}
 
@@ -118,9 +119,9 @@ function tripView(){const t=S.trip,rates=t.rates||{};
 
 function curOptions(){const r=Object.keys(S.trip.rates||{});return [home(),...r.filter(c=>c!==home()),...CURS.filter(c=>c!==home()&&!r.includes(c))]}
 function openForm(e){delArm=false;const me=S.me[S.tid];
-  if(e)F={id:e.id,desc:e.desc||'',amount:String(e.amount??''),cur:e.cur||home(),rate:e.cur!==home()?String(e.rate??''):'',paidBy:e.paidBy,date:e.date||today(),mode:e.split?.mode||'equal',parts:{...(e.split?.parts||{})},items:(e.split?.items||[]).map(it=>({n:it.n||'',p:String(it.p??''),who:[...(it.who||[])],c:it.c||'food',...(Number.isInteger(it.of)?{of:it.of}:{})})),receipt:e.receipt||null,file:null,drop:false,createdBy:e.createdBy,createdAt:e.createdAt};
+  if(e)F={id:e.id,desc:e.desc||'',amount:String(e.amount??''),cur:e.cur||home(),rate:e.cur!==home()?String(e.rate??''):'',paidBy:e.paidBy,date:e.date||today(),mode:e.split?.mode||'equal',parts:{...(e.split?.parts||{})},items:(e.split?.items||[]).map(it=>({n:it.n||'',p:String(it.p??''),who:[...(it.who||[])],c:it.c||'food',...(Number.isInteger(it.of)?{of:it.of}:{})})),receipt:e.receipt||null,file:null,drop:false,createdBy:e.createdBy,createdAt:e.createdAt,nb:{...(e.split?.book||{})},pd:JSON.parse(JSON.stringify(e.split?.dates||{}))};
   else{const last=[...S.exp].sort((a,b)=>(b.createdAt||0)-(a.createdAt||0))[0],cur=last?.cur||home();
-    F={desc:'',amount:'',cur,rate:cur!==home()?String(S.trip.rates?.[cur]??''):'',paidBy:me,date:today(),mode:'equal',parts:Object.fromEntries(members().map(m=>[m.id,1])),items:[],receipt:null,file:null,drop:false}}
+    F={desc:'',amount:'',cur,rate:cur!==home()?String(S.trip.rates?.[cur]??''):'',paidBy:me,date:today(),mode:'equal',parts:Object.fromEntries(members().map(m=>[m.id,1])),items:[],receipt:null,file:null,drop:false,nb:{},pd:{}}}
   if(F.mode==='items'&&F.items.length){const x=Math.round((num(F.amount)-F.items.reduce((t,it)=>t+num(it.p),0))*100)/100;F.extra=x?String(x):''}else F.extra='';
   $('#sheet').hidden=false;renderForm();if(!e)setTimeout(()=>$('#f-amount')?.focus(),50)}
 function closeSheet(){$('#sheet').hidden=true;$('#panel').innerHTML='';if(F?.preview)URL.revokeObjectURL(F.preview);F=null}
@@ -191,7 +192,10 @@ function itemTotals(r){const narrow=matchMedia('(max-width:600px)').matches,cv=v
 function splitEditor(){const ms=members();
   if(F.mode==='items')return itemsEditor();
   if(F.mode==='equal')return `<div class="chips">${ms.map(m=>`<button type="button" class="chip${num(F.parts[m.id])>0?' on':''}" data-act="tog" data-id="${esc(m.id)}" aria-pressed="${num(F.parts[m.id])>0}">${av(m.id,'xs')}${esc(m.name)}</button>`).join('')}</div><div class="quick"><button type="button" class="btn small" data-act="all">Everyone</button><button type="button" class="btn small" data-act="none">Clear</button></div>`;
-  if(F.mode==='nights')return `<div class="nfill"><label for="f-nall">Booking length</label><input id="f-nall" inputmode="numeric" placeholder="e.g. 14" aria-label="Nights in the booking"><button type="button" class="btn small" data-act="nfill">Fill everyone</button></div>`+ms.map(m=>`<div class="prow nrow"><span>${esc(m.name)}</span><span class="step"><button type="button" data-act="nstep" data-id="${esc(m.id)}" data-d="-1" aria-label="One less night for ${esc(m.name)}">−</button><input class="pin" data-id="${esc(m.id)}" inputmode="decimal" value="${esc(F.parts[m.id]??'')}" placeholder="0" aria-label="Nights for ${esc(m.name)}"><button type="button" data-act="nstep" data-id="${esc(m.id)}" data-d="1" aria-label="One more night for ${esc(m.name)}">+</button></span><em>nights</em></div>`).join('');
+  if(F.mode==='nights'){F.nb=F.nb||{};F.pd=F.pd||{};const bn=nDiff(F.nb.f,F.nb.t);
+    return `<div class="nbook"><span class="nbl">Booking dates <small>optional</small></span><div class="ndr"><input type="date" id="f-nfrom" value="${esc(F.nb.f||'')}" aria-label="Booking starts"><span aria-hidden="true">→</span><input type="date" id="f-nto" value="${esc(F.nb.t||'')}" aria-label="Booking ends"></div><p class="hint" id="f-nbh">${bn>0?`${bn} night${bn===1?'':'s'}`:bn<=0?'The end date needs to be after the start':''}</p></div>
+    <div class="nfill"><label for="f-nall">Booking length</label><input id="f-nall" inputmode="numeric" placeholder="e.g. 14" value="${bn>0?bn:''}" aria-label="Nights in the booking"><button type="button" class="btn small" data-act="nfill">Fill everyone</button></div>`+ms.map(m=>{const d=F.pd[m.id],open=!!d,pn=d?nDiff(d.f,d.t):NaN;
+      return `<div class="nper${open?' open':''}"><div class="prow nrow"><span>${esc(m.name)}${d&&pn>0?`<small class="nds">${esc(dShort(d.f))} – ${esc(dShort(d.t))}</small>`:''}</span><span class="step"><button type="button" data-act="nstep" data-id="${esc(m.id)}" data-d="-1" aria-label="One less night for ${esc(m.name)}">−</button><input class="pin" data-id="${esc(m.id)}" inputmode="decimal" value="${esc(F.parts[m.id]??'')}" placeholder="0" aria-label="Nights for ${esc(m.name)}"><button type="button" data-act="nstep" data-id="${esc(m.id)}" data-d="1" aria-label="One more night for ${esc(m.name)}">+</button></span><button type="button" class="ncal${open?' on':''}" data-act="ndates" data-id="${esc(m.id)}" aria-pressed="${open}" aria-label="${open?'Stop using dates':'Use dates'} for ${esc(m.name)}"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3.5 10h17M8 3v4M16 3v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button></div>${open?`<div class="ndr pdr"><input type="date" class="pdf" data-id="${esc(m.id)}" value="${esc(d.f||'')}" aria-label="${esc(m.name)} from"><span aria-hidden="true">→</span><input type="date" class="pdt" data-id="${esc(m.id)}" value="${esc(d.t||'')}" aria-label="${esc(m.name)} to"></div>${d.f&&d.t&&!(pn>0)?'<p class="hint nbad">The second date needs to be after the first</p>':''}`:''}</div>`}).join('')}
   const unit=F.mode==='exact'?F.cur:F.mode==='shares'?'shares':'%';
   return ms.map(m=>`<label class="prow"><span>${esc(m.name)}</span><input class="pin" data-id="${esc(m.id)}" inputmode="decimal" value="${esc(F.parts[m.id]??'')}" placeholder="0"><em>${esc(unit)}</em></label>`).join('')}
 function receiptBlock(){
@@ -228,6 +232,7 @@ function hints(){const conv=$('#f-conv'),left=$('#f-left');if(!conv)return;const
   else if(sum>0&&tot>0){const o=alloc(tot,Object.fromEntries(members().map(m=>[m.id,Math.max(0,num(F.parts[m.id]))])));t=members().filter(m=>o[m.id]).map(m=>`${esc(m.name)} ${fc(o[m.id])}`).join(' · ')}
   else t='Give each person a number of shares (0 leaves them out)';
   left.innerHTML=t}
+function nightsMeta(parts){const o={},dates={};for(const id in parts){const d=F.pd?.[id];if(d&&nDiff(d.f,d.t)>0)dates[id]={f:d.f,t:d.t}}if(Object.keys(dates).length)o.dates=dates;if(F.nb?.f&&F.nb?.t&&nDiff(F.nb.f,F.nb.t)>0)o.book={f:F.nb.f,t:F.nb.t};return o}
 function ferr(m){const e=$('#f-err');if(e)e.textContent=m;const b=$('#f-save');if(b){b.disabled=false;b.textContent=F?.id?'Save changes':'Add expense'}}
 async function shrink(file,max,q){const url=URL.createObjectURL(file);try{const img=await new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=()=>rej(new Error("that file isn't an image"));i.src=url});
   const s=Math.min(1,max/Math.max(img.naturalWidth,img.naturalHeight)),c=document.createElement('canvas');c.width=Math.max(1,Math.round(img.naturalWidth*s));c.height=Math.max(1,Math.round(img.naturalHeight*s));c.getContext('2d').drawImage(img,0,0,c.width,c.height);
@@ -248,6 +253,7 @@ async function saveExpense(){if(!F)return;const amount=F.mode==='items'?itemMath
   if(!Object.keys(parts).length)return ferr('Choose who this is split between.');
   const sum=Object.values(parts).reduce((s,v)=>s+v,0);
   if(F.mode==='exact'&&Math.abs(sum-amount)>0.005)return ferr(`The amounts add up to ${money(sum,F.cur)}, not ${money(amount,F.cur)}.`);
+  if(F.mode==='nights'){for(const m of members()){const d=F.pd?.[m.id];if(d&&!(nDiff(d.f,d.t)>0))return ferr(`Check ${m.name}'s dates: the second date needs to be after the first.`)}}
   if(F.mode==='percent'&&Math.abs(sum-100)>0.01)return ferr(`The percentages add up to ${Math.round(sum*100)/100}%, not 100%.`);
   if(!F.dupOk){const dd=dupOf();if(dd){F.dupOk=true;return ferr(`This looks like a duplicate of “${dd.desc}” on ${fmtDate(dd.date)} (${money(num(dd.amount),dd.cur)}), added by ${mname(dd.createdBy)}. Tap ${F.id?'Save changes':'Add expense'} again to add it anyway.`)}}
   const b=$('#f-save');if(b){b.disabled=true;b.textContent='Saving…'}
@@ -256,7 +262,7 @@ async function saveExpense(){if(!F)return;const amount=F.mode==='items'?itemMath
   const me=S.me[S.tid];
   if(photo)put(`trips/${S.tid}/receipts/${id}`,{data:photo});
   else if(F.drop&&F.receipt)del(`trips/${S.tid}/receipts/${id}`);
-  put(`trips/${S.tid}/expenses/${id}`,{desc:F.desc.trim()||'Expense',amount,cur:F.cur,rate,paidBy:F.paidBy,date:F.date||today(),split:items?{mode:'items',parts,items}:{mode:F.mode,parts},receipt:receipt||null,createdBy:F.createdBy||me,createdAt:F.createdAt||Date.now(),updatedAt:Date.now(),updatedBy:me});
+  put(`trips/${S.tid}/expenses/${id}`,{desc:F.desc.trim()||'Expense',amount,cur:F.cur,rate,paidBy:F.paidBy,date:F.date||today(),split:items?{mode:'items',parts,items}:{mode:F.mode,parts,...(F.mode==='nights'?nightsMeta(parts):{})},receipt:receipt||null,createdBy:F.createdBy||me,createdAt:F.createdAt||Date.now(),updatedAt:Date.now(),updatedBy:me});
   if(foreign&&num(S.trip.rates?.[F.cur])!==rate)tripSave({rates:{...(S.trip.rates||{}),[F.cur]:rate}});
   logAct(`${F.id?'edited':'added'} ${F.desc.trim()||'Expense'} (${money(amount,F.cur)})`);const wasEdit=!!F.id;closeSheet();toast(wasEdit?'Expense updated':'Expense added')}
 function tripSave(patch){return put('trips/'+S.tid,{...S.tripRaw,...patch})}
@@ -309,7 +315,7 @@ function showPerson(id){const me=S.me[S.tid],who=x=>x===me?'You':mname(x),cv=(v,
       its.forEach(x=>{const w=x.who||[];if(w.includes(id)){const part=num(x.p)/w.length;myItems+=part;lines.push(`<li${x.of!=null?' class="ao"':''}><span>${x.of!=null?'↳ ':''}${esc(x.n)}${w.length>1?` <small>${fracLabel(w.length)} of ${esc(cv(num(x.p),e.cur))}</small>`:''}</span><span>${esc(cv(part,e.cur))}</span></li>`)}});
       if(extra&&asum>0&&myItems>0)lines.push(`<li class="ex"><span>${extra>0?'Share of extras (surcharge, tip)':'Share of discount'}</span><span>${extra<0?'−':''}${esc(cv(Math.abs(myItems/asum*extra),e.cur))}</span></li>`);
       detail=lines.length?`<ul class="pitems">${lines.join('')}</ul>`:''}
-    else if(mine){const n=Object.keys(weights(e)).length,m=e.split?.mode;detail=`<p class="hint pnote">${m==='exact'?'Exact amounts':m==='shares'?'Split by shares':m==='nights'?(()=>{const w=weights(e),t=Object.values(w).reduce((a,v)=>a+v,0);return `By nights · ${w[id]} night${w[id]===1?'':'s'} of ${Math.round(t*100)/100} across everyone`})():m==='percent'?'Split by %':n===members().length?`Split equally with everyone (${n})`:`Split equally ${n} ways`}</p>`}
+    else if(mine){const n=Object.keys(weights(e)).length,m=e.split?.mode;detail=`<p class="hint pnote">${m==='exact'?'Exact amounts':m==='shares'?'Split by shares':m==='nights'?(()=>{const w=weights(e),t=Object.values(w).reduce((a,v)=>a+v,0);const dd=e.split?.dates?.[id];return `By nights · ${w[id]} night${w[id]===1?'':'s'}${dd?` (${esc(dShort(dd.f))} – ${esc(dShort(dd.t))})`:''} of ${Math.round(t*100)/100} across everyone`})():m==='percent'?'Split by %':n===members().length?`Split equally with everyone (${n})`:`Split equally ${n} ways`}</p>`}
     rows.push(`<div class="pe"><div class="pe-h"><span><b>${esc(e.desc)}</b><small>${esc(fmtDate(e.date))}${payer?` · ${esc(who(id))} paid ${fc(c)}`:''}${e.cur!==home()?` · ${esc(money(num(e.amount),e.cur))}`:''}</small></span><span class="amt">${mine?fc(mine):'<small>not in it</small>'}</span></div>${detail}</div>`)}
   let sent=0,recv=0;for(const p of S.pay){if(p.from===id)sent+=num(p.cents);if(p.to===id)recv+=num(p.cents)}
   const n=net[id]||0,plan=settle(net).filter(p=>p.from===id||p.to===id);
@@ -344,8 +350,9 @@ document.addEventListener('click',async ev=>{
   else if(a==='share')shareLink();
   else if(a==='mode'){const m=b.dataset.mode;if(m===F.mode)return;F.mode=m;if(m==='items'){if(!F.items.length)F.items=[{n:'',p:num(F.amount)>0?String(num(F.amount)):'',who:[]}];F.extra='';renderForm();return}const ms=members(),inc=ms.filter(x=>num(F.parts[x.id])>0),base=inc.length?inc:ms;
     F.parts=m==='exact'||m==='nights'?{}:m==='percent'?Object.fromEntries(base.map(x=>[x.id,String(Math.round(10000/base.length)/100)])):Object.fromEntries(base.map(x=>[x.id,1]));renderForm()}
-  else if(a==='nstep'){const v=Math.max(0,Math.round(num(F.parts[id]))+(+b.dataset.d));F.parts[id]=v?String(v):'';const inp=b.parentNode.querySelector('.pin');if(inp)inp.value=F.parts[id];hints()}
-  else if(a==='nfill'){const v=num($('#f-nall')?.value);if(!(v>0))return toast('Enter how many nights the booking is');for(const m of members())F.parts[m.id]=String(v);renderForm()}
+  else if(a==='ndates'){if(F.pd[id])delete F.pd[id];else{F.pd[id]={f:F.nb.f||'',t:F.nb.t||''};const n=nDiff(F.pd[id].f,F.pd[id].t);if(n>0)F.parts[id]=String(n)}renderForm()}
+  else if(a==='nstep'){if(F.pd[id])delete F.pd[id];const v=Math.max(0,Math.round(num(F.parts[id]))+(+b.dataset.d));F.parts[id]=v?String(v):'';if(b.closest('.nper.open')){renderForm();return}const inp=b.parentNode.querySelector('.pin');if(inp)inp.value=F.parts[id];hints()}
+  else if(a==='nfill'){const v=num($('#f-nall')?.value);if(!(v>0))return toast('Enter how many nights the booking is');for(const m of members()){F.parts[m.id]=String(v);if(F.pd[m.id]){if(F.nb.f&&F.nb.t&&nDiff(F.nb.f,F.nb.t)===v)F.pd[m.id]={f:F.nb.f,t:F.nb.t};else delete F.pd[m.id]}}renderForm()}
   else if(a==='tog'){F.parts[id]=num(F.parts[id])>0?0:1;b.classList.toggle('on');b.setAttribute('aria-pressed',num(F.parts[id])>0);hints()}
   else if(a==='itog'){const i0=+b.dataset.i,it=F.items[i0];if(!it)return;const k=it.who.indexOf(id),on=k<0;on?it.who.push(id):it.who.splice(k,1);
     const paint=(j)=>{const x=F.items[j],btn=document.querySelector(`.cell[data-act="itog"][data-i="${j}"][data-id="${CSS.escape(id)}"]`);if(btn){btn.classList.toggle('on',x.who.includes(id));btn.setAttribute('aria-pressed',x.who.includes(id))}btn?.closest('tr')?.querySelector('.cell.all')?.classList.toggle('on',x.who.length===members().length)};
@@ -377,7 +384,11 @@ document.addEventListener('click',async ev=>{
 });
 document.addEventListener('input',ev=>{if(!F)return;const t=ev.target;
   if(t.id==='f-amount')F.amount=t.value;else if(t.id==='f-rate')F.rate=t.value;else if(t.id==='f-desc')F.desc=t.value;else if(t.id==='f-date')F.date=t.value;
-  else if(t.classList.contains('pin'))F.parts[t.dataset.id]=t.value;
+  else if(t.classList.contains('pin')){F.parts[t.dataset.id]=t.value;if(F.pd?.[t.dataset.id]){delete F.pd[t.dataset.id];const r=t.closest('.nper');r?.classList.remove('open');r?.querySelector('.pdr')?.remove();r?.querySelector('.nbad')?.remove();r?.querySelector('.nds')?.remove();const c=r?.querySelector('.ncal');if(c){c.classList.remove('on');c.setAttribute('aria-pressed','false')}}}
+  else if(t.id==='f-nfrom'||t.id==='f-nto'){F.nb[t.id==='f-nfrom'?'f':'t']=t.value;const n=nDiff(F.nb.f,F.nb.t),h=$('#f-nbh');if(h)h.textContent=n>0?`${n} night${n===1?'':'s'}`:F.nb.f&&F.nb.t?'The end date needs to be after the start':'';if(n>0){const l=$('#f-nall');if(l)l.value=n}}
+  else if(t.classList.contains('pdf')||t.classList.contains('pdt')){const id=t.dataset.id,d=F.pd[id]||(F.pd[id]={f:'',t:''});d[t.classList.contains('pdf')?'f':'t']=t.value;const n=nDiff(d.f,d.t),r=t.closest('.nper');r?.querySelector('.nbad')?.remove();
+    if(n>0){F.parts[id]=String(n);const p=r?.querySelector('.pin');if(p)p.value=n;let sm=r?.querySelector('.nds');if(!sm){sm=document.createElement('small');sm.className='nds';r?.querySelector('.nrow>span')?.append(sm)}sm.textContent=`${dShort(d.f)} – ${dShort(d.t)}`}
+    else{r?.querySelector('.nds')?.remove();if(d.f&&d.t)r?.querySelector('.pdr')?.insertAdjacentHTML('afterend','<p class="hint nbad">The second date needs to be after the first</p>')}}
   else if(t.classList.contains('iname'))F.items[+t.dataset.i].n=t.value;else if(t.classList.contains('iprice'))F.items[+t.dataset.i].p=t.value;else if(t.classList.contains('iextra'))F.extra=t.value;else return;hints()});
 document.addEventListener('change',ev=>{const t=ev.target;if(!F)return;
   if(t.id==='f-cur'){F.cur=t.value;F.rate=F.cur!==home()?String(S.trip.rates?.[F.cur]??''):'';renderForm()}
