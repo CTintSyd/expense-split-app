@@ -119,7 +119,7 @@ function homeView(){const list=Object.entries(S.recent).sort((a,b)=>(b[1].at||0)
     <label>Name<input name="name" required maxlength="60" placeholder="Japan snow trip, share house"></label>
     <label>Home currency <small>Everything is settled in this</small><select name="home">${CURS.map(c=>`<option${c==='AUD'?' selected':''}>${c}</option>`).join('')}</select></label>
     <fieldset class="ppl"><legend>Who's coming? <small>Your name first, then everyone else.</small></legend><ul class="plist" id="plist">${[0,1,2].map(i=>pRow(i===0)).join('')}</ul><button type="button" class="btn small" data-act="padd">+ Add person</button></fieldset>
-    <button class="btn primary">Create trip</button></form></section>`}
+    <button class="btn primary">Create trip, group or expense</button></form></section>`}
 
 function splitLabel(e){const w=weights(e),n=Object.keys(w).length,m=e.split?.mode;
   if(m==='items'){const k=(e.split.items||[]).length;return `${k} item${k===1?'':'s'}`}
