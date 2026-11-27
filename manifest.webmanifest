@@ -1,7 +1,7 @@
 {
   "name": "Expenses Split",
   "short_name": "Expenses Split",
-  "description": "Split trip and group expenses with friends. Everyone adds what they paid.",
+  "description": "Split trips, groups and expenses with friends. Everyone adds what they paid.",
   "display": "standalone",
   "background_color": "#f2f5fa",
   "theme_color": "#1f3b73",
