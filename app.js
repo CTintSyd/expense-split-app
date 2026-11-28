@@ -204,6 +204,16 @@ const ECAT_RE=[
 function catOf(e){if(e.split?.mode==='items'&&Array.isArray(e.split.items)&&e.split.items.length){let f=0,d=0;for(const it of e.split.items){if((it.c||'food')==='drink')d+=num(it.p);else if((it.c||'food')==='food')f+=num(it.p)}if(f||d)return d>f?'drinks':'food'}
   const t=String(e.desc||'').toLowerCase()+' '+String(e.note||'').toLowerCase();if(/uber ?eats|menulog|deliveroo|doordash/.test(t))return 'food';for(const [k,re] of ECAT_RE)if(re.test(t))return k;return e.split?.mode==='nights'?'stay':'other'}
 function catIcon(e){const k=catOf(e),[lab,col,path]=ECAT[k];return `<span class="eic" style="--ec:${col}" title="${lab}"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${path}</svg>${av(e.paidBy,'xs')}</span>`}
+// ---- Shrink long item names so the whole name fits ----
+const fitCtx=document.createElement('canvas').getContext('2d');
+function fitName(el){el.style.fontSize='';const cs=getComputedStyle(el),fs=parseFloat(cs.fontSize)||16,txt=el.value||el.placeholder||'';
+  fitCtx.font=`${cs.fontWeight} ${fs}px ${cs.fontFamily}`;const w=fitCtx.measureText(txt).width,avail=el.clientWidth-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight)-2;
+  const ie=el.closest('td')?.querySelector('.ieach');let cut=false;
+  if(w>avail&&avail>0){const r=Math.max(.8,avail/w);el.style.fontSize=(fs*r).toFixed(2)+'px';cut=w*r>avail}
+  el.title=el.value||'';if(ie){if(cut&&el.value)ie.dataset.full=el.value;else delete ie.dataset.full}}
+function fitNames(){document.querySelectorAll('.igrid .iname').forEach(fitName)}
+document.addEventListener('input',ev=>{if(ev.target.classList?.contains('iname'))fitName(ev.target)});
+window.addEventListener('resize',()=>{if(document.querySelector('.igrid'))fitNames()});
 // ---- Trip colour and cover photo ----
 const TCOL=[['#2f6fde','Blue'],['#e0673a','Orange'],['#2e9d6a','Green'],['#8a5cd1','Purple'],['#d4477a','Pink'],['#14919f','Teal'],['#c48a1c','Gold'],['#47546e','Slate']];
 const tColor=(t,id)=>{if(/^#[0-9a-f]{6}$/i.test(t?.color||''))return t.color;let h=0;for(const c of String(id||''))h=(h*31+c.charCodeAt(0))>>>0;return TCOL[h%TCOL.length][0]};
@@ -427,7 +437,7 @@ function renderForm(){const foreign=F.cur!==home(),modes=[['equal','Equal'],['it
     ${histBlock()}
     <p class="err" id="f-err"></p>
     <div class="acts">${F.id?`<button type="button" class="btn danger" data-act="del">Delete</button>`:''}<button class="btn primary" id="f-save">${F.id?'Save changes':'Add expense'}</button></div>
-  </form>`;hints();fitGrid();fxFill()}
+  </form>`;hints();fitGrid();fxFill();requestAnimationFrame(fitNames)}
 function formTotal(){const a=num(F.amount),r=F.cur===home()?1:num(F.rate);return Math.round(a*r*100)}
 function hints(){payHint();const conv=$('#f-conv'),left=$('#f-left');if(!conv)return;const a=num(F.amount),tot=formTotal(),foreign=F.cur!==home();
   conv.innerHTML=foreign&&a>0&&num(F.rate)>0?`That's <b>${fc(tot)}</b>`:'';conv.hidden=!conv.innerHTML;

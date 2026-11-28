@@ -740,6 +740,8 @@ body.selmode .fab{display:none!important}
 .hist .hl ul{color:rgba(255,255,255,.92)}
 .hist .hl .hw{color:rgba(255,255,255,.6)}
 .hist .hl>li{border-left-color:rgba(255,255,255,.25)}
+.ieach[data-full]::before{content:attr(data-full);display:block;color:var(--ink);font-weight:500;white-space:normal}
+.ieach:empty[data-full]{display:block}
 </style></head><body>
 <div class="sync" id="sync" hidden></div>
 <header class="top" id="top"></header>
