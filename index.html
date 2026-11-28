@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en-AU"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
 <title>EZ Expenses</title>
 <meta name="theme-color" content="#16224a">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -914,6 +914,12 @@ body.faqopen{overflow:hidden}
   .faqov{align-items:center}
 }
 @media (min-width:1000px){#fab{right:max(24px,calc(50vw - 560px))!important}}
+
+/* Mobile: no zoom-on-tap, no sideways drift, background stays put while a form is open */
+html,body{overflow-x:hidden;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+.panel{overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+.faqp{overflow-x:hidden;overscroll-behavior:contain}
+body:has(#sheet:not([hidden])){overflow:hidden}
 </style></head><body>
 <div class="sync" id="sync" hidden></div>
 <header class="top" id="top"></header>
