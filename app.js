@@ -274,6 +274,7 @@ document.addEventListener('click',ev=>{const t=ev.target;if(t.id==='faqov')retur
   if(b.dataset.act==='faq'){ev.preventDefault();ev.stopImmediatePropagation();openFAQ()}else if(b.dataset.act==='faqx'){ev.stopImmediatePropagation();closeFAQ()}},true);
 document.addEventListener('keydown',ev=>{if(ev.key==='Escape'&&document.getElementById('faqov')){ev.stopImmediatePropagation();closeFAQ()}},true);
 // ---- Search and filter the expense list ----
+function settledTot(me){let c=0,m=0;for(const e of S.exp){if(!e.settled)continue;const x=eCents(e);if(!(x>0))continue;c+=x;if(me)m+=alloc(x,weights(e))[me]||0}return {c,m}}
 document.addEventListener('change',ev=>{if(ev.target.id==='f-settled'&&typeof F!=='undefined'&&F)F.settled=ev.target.checked});
 function xqKeep(a){if(!a)return;const i=document.getElementById('xq');if(!i)return;i.focus();try{i.setSelectionRange(a[0],a[0])}catch(e){}}
 var XF={q:'',f:'',tid:null};
@@ -371,7 +372,7 @@ function renderTop(){const t=$('#top');
   if(S.tid&&S.trip){const me=S.me[S.tid],{net,share,spent}=calc(),n=me?net[me]||0:0;
     const lab=!me?'Trip total':n>0?"You're owed":n<0?'You owe':"You're all square";
     paintTop(t,'./');
-    $('#hcard').innerHTML=`<p class="bal1"><span>${lab}</span><b class="big ${me&&n>0?'pos':me&&n<0?'neg':''}">${fc(me?Math.abs(n):spent)}</b></p><div class="hstats"><div class="hs main"><span>Total spent</span><b>${fc(spent)}</b></div>${me?`<div class="hs"><span>Your share</span><b>${fc(share[me]||0)}</b></div>`:''}<div class="hs"><span>Expenses</span><b>${S.exp.length}</b></div></div>`;$('#hcard').hidden=false;
+    const st=settledTot(me);$('#hcard').innerHTML=`<p class="bal1"><span>${lab}</span><b class="big ${me&&n>0?'pos':me&&n<0?'neg':''}">${fc(me?Math.abs(n):spent)}</b></p>${st.c&&me?`<p class="bsub">Not counting ${fc(st.c)} already settled</p>`:''}<div class="hstats"><div class="hs main"><span>Total spent</span><b>${fc(spent)}</b>${st.c?`<small>${fc(st.c)} settled</small>`:''}</div>${me?`<div class="hs"><span>Your share</span><b>${fc(share[me]||0)}</b>${st.m?`<small>${fc(st.m)} settled</small>`:''}</div>`:''}<div class="hs"><span>Expenses</span><b>${S.exp.length}</b></div></div>`;$('#hcard').hidden=false;
   }else{paintHome(t);$('#hcard').hidden=true}}
 
 function render(){const xqa=document.activeElement?.id==='xq'?[document.activeElement.selectionStart]:null;renderTop();syncBadge();const a=$('#app'),fab=$('#fab');fab.hidden=true;
