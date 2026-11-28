@@ -742,6 +742,12 @@ body.selmode .fab{display:none!important}
 .hist .hl>li{border-left-color:rgba(255,255,255,.25)}
 .ieach[data-full]::before{content:attr(data-full);display:block;color:var(--ink);font-weight:500;white-space:normal}
 .ieach:empty[data-full]{display:block}
+.ieach[data-full]::before{content:none}
+.igrid .icell textarea.iname{border-color:transparent;background:transparent;box-shadow:none;resize:none;overflow:hidden;white-space:pre-wrap;overflow-wrap:anywhere;display:block;line-height:22px;padding-top:12px;padding-bottom:12px}
+.igrid .icell textarea.iname:hover{background:color-mix(in srgb,var(--soft) 60%,transparent)}
+.igrid .icell textarea.iname:focus{background:var(--soft);border-color:transparent;box-shadow:inset 0 -2px 0 var(--teal)}
+.igrid .icell textarea.iname::placeholder{color:color-mix(in srgb,var(--muted) 70%,transparent)}
+@media(max-width:600px){.igrid .icell textarea.iname{height:34px;min-height:34px;font-size:16px;padding:2px 8px;line-height:28px;border-radius:10px;transform:scale(.56);transform-origin:0 50%;margin-block:-7.5px}}
 </style></head><body>
 <div class="sync" id="sync" hidden></div>
 <header class="top" id="top"></header>
