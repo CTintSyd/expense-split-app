@@ -301,7 +301,7 @@ function render(){renderTop();syncBadge();const a=$('#app'),fab=$('#fab');fab.hi
   if(!S.trip){a.innerHTML=`<section class="band"><p class="muted">${S.tripMissing?"This trip link doesn't work. Check you have the whole link.":S.stale?"Can't reach this trip yet. Check your signal.":'Loading trip…'}</p><a class="btn" href="./">All trips</a></section>`;return}
   const me=S.me[S.tid];
   if(!me||!members().some(m=>m.id===me)){a.innerHTML=`<section class="band who"><h2>Who are you?</h2><p class="muted">Pick your name so new expenses default to you. You can change it later.</p><div class="chips">${members().map(m=>`<button type="button" class="chip" data-act="iam" data-id="${esc(m.id)}">${av(m.id)}${esc(m.name)}</button>`).join('')}</div></section>`;return}
-  const tabs=[['exp','Expenses'],['settle','Settle up'],['trip','Trip']];
+  const tabs=[['exp','Expenses'],['settle','Settle up'],['trip','Settings']];
   a.innerHTML=`<nav class="tabs">${tabs.map(([k,l])=>`<button type="button" data-act="tab" data-tab="${k}" aria-current="${S.tab===k}">${l}</button>`).join('')}</nav>`+
     (S.tab==='exp'?expView():S.tab==='settle'?settleView():tripView());
   fab.hidden=S.tab==='trip';collapseTrip()}
