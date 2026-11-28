@@ -12,4 +12,4 @@ export default {
 // The AI models that read receipts and transaction screenshots (Firebase AI Logic, Gemini Developer API free tier).
 // The fast one is tried first; the backup is used if it times out or finds nothing.
 export const aiModel = "gemini-3.5-flash-lite";
-export const aiModelBackup = "gemini-3.8-flash";
+export const aiModelBackup = "gemini-3.5-flash";

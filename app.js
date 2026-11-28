@@ -609,10 +609,15 @@ async function saveExpense(){if(!F)return;const amount=F.mode==='items'?itemMath
 function tripSave(patch){return put('trips/'+S.tid,{...S.tripRaw,...patch})}
 // Receipt reading: Gemini (through Firebase AI Logic) turns the photo into line items.
 // Fast model first; if it times out or finds nothing, try the bigger one.
-const AI_MODELS=[cfgAll.aiModel||'gemini-3.5-flash-lite',cfgAll.aiModelBackup||'gemini-3.8-flash'].filter((v,i,a)=>v&&a.indexOf(v)===i);const aiModels={};
+const AI_MODELS=[cfgAll.aiModel||'gemini-3.5-flash-lite',cfgAll.aiModelBackup||'gemini-3.5-flash'].filter((v,i,a)=>v&&a.indexOf(v)===i);const aiModels={};
 const AI_GEN=name=>/lite/.test(name)?{}:{thinkingConfig:{thinkingLevel:'low'}};
+function aiWhy(e,what){const m=String(e?.message||e||'');
+  if(/429|quota|RESOURCE_EXHAUSTED|rate/i.test(m))return `The free reader is busy right now. Try ${what} again in a minute.`;
+  if(/app.?check|403|PERMISSION|permission/i.test(m))return `The reader isn't allowed to run on this site yet (${m.slice(0,80)}).`;
+  if(/image|decode|null/i.test(m))return `Couldn't open that photo. Try taking a screenshot of it and adding that instead.`;
+  return `Couldn't read ${what}. (${m.replace(/^AI: /,'').slice(0,90)})`}
 const withTimeout=(p,ms)=>Promise.race([p,new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),ms))]);
-async function aiTry(run,ok){let last=null;for(const [i,name] of AI_MODELS.entries()){try{const r=await withTimeout(run(name),i?75000:35000);if(ok(r))return r;last=last||new Error('nothing found')}catch(e){console.warn(name,e);last=e}}throw last||new Error('failed')}
+async function aiTry(run,ok){let last=null;for(const [i,name] of AI_MODELS.entries()){try{const r=await withTimeout(run(name),i?80000:30000);if(ok(r))return r;last=new Error('nothing found')}catch(e){console.warn(name,e);if(e instanceof SyntaxError)e=new Error('nothing found');if(!last||last.message==='timeout'||e.message!=='timeout')last=e}}throw last||new Error('failed')}
 async function getModel(name){if(aiModels[name])return aiModels[name];
   const {getAI,getGenerativeModel,GoogleAIBackend,Schema}=await import('https://www.gstatic.com/firebasejs/13.4.0/firebase-ai.js');
   const schema=Schema.object({properties:{
@@ -645,7 +650,7 @@ function applyScan(r){
 async function scanReceipt(){if(!F?.file)return;const mine=F;F.scan='busy';renderForm();
   try{if(!navigator.onLine)throw new Error('offline');const r=await readReceipt(mine.file);if(F!==mine)return;
     if(applyScan(r)){F.scan='done';const dd=dupOf();if(dd)F.scanMsg+=` Heads up: this may already be added as “${dd.desc}” (${fmtDate(dd.date)}).`}else{F.scan='fail';F.scanMsg="Couldn't find any items on this photo."}}
-  catch(e){console.warn(e);if(F!==mine)return;F.scan='fail';F.scanMsg=e.message==='offline'?"No signal, so the receipt can't be read yet.":e.message==='timeout'?"Reading the receipt took too long.":e.message==='nothing found'?"Couldn't find any items on this photo.":"Couldn't read the receipt."}
+  catch(e){console.warn(e);if(F!==mine)return;F.scan='fail';F.scanMsg=e.message==='offline'?"No signal, so the receipt can't be read yet.":e.message==='timeout'?"Reading the receipt took too long.":e.message==='nothing found'?"Couldn't find any items on this photo. Try a closer, flatter photo in good light.":aiWhy(e,'the receipt')}
   renderForm()}
 // Person breakdown: what someone paid, what they owe, and why.
 const fracLabel=n=>({2:'½',3:'⅓',4:'¼',5:'⅕',6:'⅙',8:'⅛'}[n]||`1/${n}`);
