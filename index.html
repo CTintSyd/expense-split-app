@@ -924,6 +924,13 @@ body:has(#sheet:not([hidden])){overflow:hidden}
 /* Item prices sit right after the currency symbol */
 .ip .psym{margin-right:0!important;padding-right:0!important}
 .ip .iprice,.ip .iextra{text-align:left!important;padding-left:2px!important}
+
+/* Items: add-ons without numbers, easy add */
+.addon .nb{font-family:inherit!important;font-style:normal!important;min-height:20px}
+.ifoot{display:flex;align-items:center;justify-content:space-between;gap:6px;flex-wrap:wrap}
+.subadd{border:0;background:none;color:var(--teal);font:inherit;font-size:12px;font-weight:600;padding:2px 4px 4px;cursor:pointer;white-space:nowrap}
+.iaddrow td{padding:6px 0!important;border-bottom:1px solid var(--line)}
+.iaddb{border:0;background:none;color:var(--teal);font:inherit;font-weight:700;font-size:15px;padding:8px 10px;cursor:pointer;width:100%;text-align:left}
 </style></head><body>
 <div class="sync" id="sync" hidden></div>
 <header class="top" id="top"></header>
