@@ -824,6 +824,16 @@ body.faqopen{overflow:hidden}
 .past[open]>summary::after{transform:rotate(-135deg);margin-top:4px}
 .past .trip{opacity:.8}
 .sqdone{margin-top:12px}
+
+/* Already settled */
+.setl{display:flex!important;flex-direction:row!important;gap:10px;align-items:flex-start;background:var(--card);border-radius:12px;padding:12px;cursor:pointer}
+.setl input{width:20px;height:20px;margin:1px 0 0;flex:none;accent-color:var(--teal)}
+.setl span{display:flex;flex-direction:column;gap:3px}
+.setl small{color:var(--muted);font-weight:400;line-height:1.35}
+.stag{display:inline-block;align-self:flex-start;margin-top:4px;padding:2px 8px;border-radius:999px;background:color-mix(in srgb,var(--teal) 14%,transparent);color:var(--teal)!important;font-weight:600;font-size:12px}
+
+.setl input[type=checkbox]{-webkit-appearance:checkbox;appearance:auto;width:20px!important;height:20px;min-height:0;padding:0;border:0;background:none;box-shadow:none;border-radius:4px}
+.stag{width:max-content;max-width:100%}
 </style></head><body>
 <div class="sync" id="sync" hidden></div>
 <header class="top" id="top"></header>

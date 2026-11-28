@@ -137,6 +137,7 @@ function histDiff(o,n){const ch=[];if(!o)return ch;
   if(num(o.amount)!==num(n.amount)||o.cur!==n.cur)ch.push(`Amount ${money(num(o.amount),o.cur)} → ${money(num(n.amount),n.cur)}`);
   else if(o.cur!==home()&&num(o.rate)!==num(n.rate))ch.push(`Exchange rate ${num(o.rate)} → ${num(n.rate)}`);
   if(payTxt(o)!==payTxt(n))ch.push(`Paid by ${payTxt(o)} → ${payTxt(n)}`);
+  if(!!o.settled!==!!n.settled)ch.push(n.settled?'Marked as already settled':'No longer marked as settled');
   if((o.date||'')!==(n.date||''))ch.push(`Date ${fmtDate(o.date)} → ${fmtDate(n.date)}`);
   const om=o.split?.mode||'equal',nm=n.split?.mode||'equal';
   if(om!==nm)ch.push(`Split ${MODEN[om]||om} → ${MODEN[nm]||nm}`);
@@ -160,7 +161,7 @@ function exportCSV(){const ms=members(),h=home(),c2=c=>(c/100).toFixed(2),rows=[
   rows.push(['Date','Description','Note','Paid by','Amount','Currency','Exchange rate',`Amount (${h})`,'Split',...ms.map(m=>`${m.name} share (${h})`)]);
   const tp={},ts={};const exps=[...S.exp].sort((a,b)=>(a.date||'').localeCompare(b.date||'')||(a.createdAt||0)-(b.createdAt||0));
   for(const e of exps){const c=eCents(e);if(!(c>0))continue;const sh=alloc(c,weights(e)),pd=paidOf(e,c);for(const k in pd)tp[k]=(tp[k]||0)+pd[k];for(const k in sh)ts[k]=(ts[k]||0)+sh[k];
-    rows.push([e.date||'',e.desc||'',e.note||'',payTxt(e),num(e.amount).toFixed(curDp(e.cur||h)),e.cur||h,e.cur&&e.cur!==h?num(e.rate):'',c2(c),MODEN[e.split?.mode||'equal']||'',...ms.map(m=>sh[m.id]?c2(sh[m.id]):'')])}
+    rows.push([e.date||'',e.desc||'',[e.note,e.settled?'Already settled separately':''].filter(Boolean).join(' · '),payTxt(e),num(e.amount).toFixed(curDp(e.cur||h)),e.cur||h,e.cur&&e.cur!==h?num(e.rate):'',c2(c),MODEN[e.split?.mode||'equal']||'',...ms.map(m=>sh[m.id]?c2(sh[m.id]):'')])}
   const pays=[...S.pay].sort((a,b)=>(a.date||'').localeCompare(b.date||''));
   if(pays.length){rows.push([]);rows.push(['Payments made']);for(const p of pays)rows.push([p.date||'',`${mname(p.from)} paid ${mname(p.to)}`,'','','','','',c2(num(p.cents))])}
   const {net}=calc();rows.push([]);
@@ -258,6 +259,7 @@ function faqData(){const web=typeof S.fs!=='undefined'&&!!S.fs;
   ['Settling up',[
     ['How does it work out who owes whom?','It adds up what everyone paid and what everyone’s share was, then suggests the fewest payments needed to get everyone square.','<path d="M7 4 3 8l4 4"/><path d="M3 8h14"/><path d="m17 12 4 4-4 4"/><path d="M21 16H7"/>'],
     ['How do I pay people back?','<b>Settle up</b> shows who pays whom. Add your PayID or bank details in <b>Settings → People</b> so they show there. Once you’ve paid, tap <b>Mark paid</b>.','<circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/>'],
+    ['Something was already paid back separately. Can I still add it?','Yes. Add it as normal and tick <b>Already settled</b> under Notes. It counts in the trip’s total and everyone’s share, but it’s left out of Settle up, so nobody is asked to pay it twice.','<path d="M4 12.5 9 17 20 6"/>'],
     ['Can I share the totals in our group chat?','Yes. On <b>Settle up</b>, tap <b>Copy for group chat</b> and paste it in.','<path d="M21 12a8 8 0 0 1-11.8 7L4 20l1.2-4.5A8 8 0 1 1 21 12z"/>']]],
   ['Mistakes and changes',[
     ['Someone made a mistake. Can I fix it?','Anyone can edit any expense. Open it to change anything, and check <b>History</b> at the bottom to see who changed what and when.','<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>'],
@@ -272,6 +274,7 @@ document.addEventListener('click',ev=>{const t=ev.target;if(t.id==='faqov')retur
   if(b.dataset.act==='faq'){ev.preventDefault();ev.stopImmediatePropagation();openFAQ()}else if(b.dataset.act==='faqx'){ev.stopImmediatePropagation();closeFAQ()}},true);
 document.addEventListener('keydown',ev=>{if(ev.key==='Escape'&&document.getElementById('faqov')){ev.stopImmediatePropagation();closeFAQ()}},true);
 // ---- Search and filter the expense list ----
+document.addEventListener('change',ev=>{if(ev.target.id==='f-settled'&&typeof F!=='undefined'&&F)F.settled=ev.target.checked});
 function xqKeep(a){if(!a)return;const i=document.getElementById('xq');if(!i)return;i.focus();try{i.setSelectionRange(a[0],a[0])}catch(e){}}
 var XF={q:'',f:'',tid:null};
 function xfReset(){if(XF.tid!==S.tid)XF={q:'',f:'',tid:S.tid}}
@@ -341,7 +344,7 @@ function alloc(total,w){const ids=Object.keys(w).filter(k=>w[k]>0),sum=ids.reduc
   for(const k of ids){const x=total*w[k]/sum,f=Math.floor(x);out[k]=f;used+=f;rem.push([x-f,k])}
   rem.sort((a,b)=>b[0]-a[0]);for(let i=0;i<total-used;i++)out[rem[i%rem.length][1]]++;return out}
 function calc(){const net={},share={};let spent=0;members().forEach(m=>{net[m.id]=0;share[m.id]=0});
-  for(const e of S.exp){const c=eCents(e);if(!(c>0))continue;spent+=c;{const pd=paidOf(e,c);for(const k in pd)net[k]=(net[k]||0)+pd[k]}const o=alloc(c,weights(e));for(const k in o){net[k]=(net[k]||0)-o[k];share[k]=(share[k]||0)+o[k]}}
+  for(const e of S.exp){const c=eCents(e);if(!(c>0))continue;spent+=c;if(!e.settled){const pd=paidOf(e,c);for(const k in pd)net[k]=(net[k]||0)+pd[k]}const o=alloc(c,weights(e));for(const k in o){if(!e.settled)net[k]=(net[k]||0)-o[k];share[k]=(share[k]||0)+o[k]}}
   for(const p of S.pay){const c=Math.round(num(p.cents));net[p.from]=(net[p.from]||0)+c;net[p.to]=(net[p.to]||0)-c}
   return{net,share,spent}}
 function settle(net){const cr=[],dr=[];for(const k in net){if(net[k]>0)cr.push([k,net[k]]);else if(net[k]<0)dr.push([k,-net[k]])}
@@ -401,7 +404,7 @@ function expView(){if(!S.exp.length)return `<section class="band"><div class="em
   const me=S.me[S.tid],rows=[...S.exp].filter(xfOk).sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.createdAt||0)-(a.createdAt||0)),days=[];
   for(const e of rows){const d=e.date||'';if(!days.length||days[days.length-1].d!==d)days.push({d,items:[]});days[days.length-1].items.push(e)}
   return `<section class="band"><div class="imbar">${selTop()}${SEL?'':'<button type="button" class="btn small chipb" data-act="imx-open"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 4v10M7.5 9.5L12 14l4.5-4.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Import</button>'}</div>${SEL?'':xfBar()}${SEL?'':xfSummary(rows)}${days.map(g=>`<h3 class="day"><span>${esc(fmtDate(g.d))}</span><span>${fc(g.items.reduce((s,e)=>s+eCents(e),0))}</span></h3><ul class="list">${g.items.map(e=>{const c=eCents(e),mine=alloc(c,weights(e))[me]||0;
-    return `<li class="swl${SEL?.has(e.id)?' picked':''}"><button type="button" class="xdel" data-act="sw-del" data-id="${esc(e.id)}" tabindex="-1">Delete</button><button type="button" class="exp${SEL?' sel':''}" data-act="edit" data-id="${esc(e.id)}">${SEL?`<span class="selck${SEL.has(e.id)?' on':''}" aria-hidden="true"></span>`:''}${catIcon(e)}<span class="ed"><b>${esc(e.desc)}</b><small>${esc(payLabel(e,me))} paid, ${esc(splitLabel(e))}${e.receipt?', with receipt':''}</small>${e.note?`<small class="enote"><b>Note:</b> ${esc(e.note)}</small>`:''}</span><span class="amt">${fc(c)}${e.cur!==home()?`<small>${esc(money(num(e.amount),e.cur))}</small>`:''}${mine?`<small class="mine">yours ${fc(mine)}</small>`:''}</span></button></li>`}).join('')}</ul>`).join('')}${selBar()}</section>`}
+    return `<li class="swl${SEL?.has(e.id)?' picked':''}"><button type="button" class="xdel" data-act="sw-del" data-id="${esc(e.id)}" tabindex="-1">Delete</button><button type="button" class="exp${SEL?' sel':''}" data-act="edit" data-id="${esc(e.id)}">${SEL?`<span class="selck${SEL.has(e.id)?' on':''}" aria-hidden="true"></span>`:''}${catIcon(e)}<span class="ed"><b>${esc(e.desc)}</b><small>${esc(payLabel(e,me))} paid, ${esc(splitLabel(e))}${e.receipt?', with receipt':''}</small>${e.settled?'<small class="stag">Already settled</small>':''}${e.note?`<small class="enote"><b>Note:</b> ${esc(e.note)}</small>`:''}</span><span class="amt">${fc(c)}${e.cur!==home()?`<small>${esc(money(num(e.amount),e.cur))}</small>`:''}${mine?`<small class="mine">yours ${fc(mine)}</small>`:''}</span></button></li>`}).join('')}</ul>`).join('')}${selBar()}</section>`}
 
 function settleView(){const {net}=calc(),me=S.me[S.tid],max=Math.max(1,...Object.values(net).map(Math.abs)),plan=settle(net);
   const who=id=>id===me?'You':mname(id);
@@ -425,7 +428,7 @@ function tripView(){const t=S.trip,rates=t.rates||{};
 
 function curOptions(){const r=Object.keys(S.trip.rates||{});return [home(),...r.filter(c=>c!==home()),...CURS.filter(c=>c!==home()&&!r.includes(c))]}
 function openForm(e){delArm=false;const me=S.me[S.tid];
-  if(e)F={id:e.id,desc:e.desc||'',note:e.note||'',amount:String(e.amount??''),cur:e.cur||home(),rate:e.cur!==home()?String(e.rate??''):'',paidBy:e.paidBy,multi:!!(e.payers&&Object.keys(e.payers).length>1),payers:e.payers?Object.fromEntries(Object.entries(e.payers).map(([k,v])=>[k,String(v)])):null,date:e.date||today(),mode:e.split?.mode||'equal',parts:{...(e.split?.parts||{})},items:(e.split?.items||[]).map(it=>({n:it.n||'',p:String(it.p??''),who:[...(it.who||[])],c:it.c||'food',...(Number.isInteger(it.of)?{of:it.of}:{})})),receipt:e.receipt||null,file:null,drop:false,createdBy:e.createdBy,createdAt:e.createdAt,nb:{...(e.split?.book||{})},pd:JSON.parse(JSON.stringify(e.split?.dates||{}))};
+  if(e)F={id:e.id,desc:e.desc||'',note:e.note||'',settled:!!e.settled,amount:String(e.amount??''),cur:e.cur||home(),rate:e.cur!==home()?String(e.rate??''):'',paidBy:e.paidBy,multi:!!(e.payers&&Object.keys(e.payers).length>1),payers:e.payers?Object.fromEntries(Object.entries(e.payers).map(([k,v])=>[k,String(v)])):null,date:e.date||today(),mode:e.split?.mode||'equal',parts:{...(e.split?.parts||{})},items:(e.split?.items||[]).map(it=>({n:it.n||'',p:String(it.p??''),who:[...(it.who||[])],c:it.c||'food',...(Number.isInteger(it.of)?{of:it.of}:{})})),receipt:e.receipt||null,file:null,drop:false,createdBy:e.createdBy,createdAt:e.createdAt,nb:{...(e.split?.book||{})},pd:JSON.parse(JSON.stringify(e.split?.dates||{}))};
   else{const last=[...S.exp].sort((a,b)=>(b.createdAt||0)-(a.createdAt||0))[0],cur=last?.cur||home();
     F={desc:'',note:'',amount:'',rateAuto:true,cur,rate:cur!==home()?String(S.trip.rates?.[cur]??''):'',paidBy:me,date:today(),mode:'equal',parts:Object.fromEntries(members().map(m=>[m.id,1])),items:[],receipt:null,file:null,drop:false,nb:{},pd:{}}}
   if(F.mode==='items'&&F.items.length){const x=Math.round((num(F.amount)-F.items.reduce((t,it)=>t+num(it.p),0))*100)/100;F.extra=x?String(x):'';F.xs=Array.isArray(e?.split?.extras)&&e.split.extras.length?e.split.extras.map(z=>({n:z.n||'',a:String(z.a??'')})):x?[{n:'Extras',a:String(x)}]:[]}else{F.extra='';F.xs=[]}
@@ -523,6 +526,7 @@ function renderForm(){const foreign=F.cur!==home(),modes=[['equal','Equal'],['it
     ${payersBlock()}
     <fieldset><legend class="slg">Split<button type="button" class="qb${F.help?' on':''}" data-act="shelp" aria-label="How splitting works" aria-expanded="${!!F.help}">?</button></legend>${F.help?splitGuide(modes):''}<div class="seg">${modes.map(([k,l])=>`<button type="button" data-act="mode" data-mode="${k}" aria-pressed="${F.mode===k}">${l}</button>`).join('')}</div><p class="mhint">${esc(SPLITHELP[F.mode]?.[1]||'')}</p>${splitEditor()}<p class="hint" id="f-left"></p></fieldset>
     <label>Notes <small>optional</small><textarea id="f-note" rows="2" maxlength="500" placeholder="e.g. Includes Jason's birthday drinks">${esc(F.note||'')}</textarea></label>
+    <label class="setl"><input type="checkbox" id="f-settled"${F.settled?' checked':''}><span><b>Already settled</b><small>Everyone's paid this back separately. It still counts in the totals and everyone's share, but not in Settle up.</small></span></label>
     ${receiptBlock()}
     ${histBlock()}
     <p class="err" id="f-err"></p>
@@ -574,7 +578,7 @@ async function saveExpense(){if(!F)return;const amount=F.mode==='items'?itemMath
   const me=S.me[S.tid];
   if(photo)put(`trips/${S.tid}/receipts/${id}`,{data:photo});
   else if(F.drop&&F.receipt)del(`trips/${S.tid}/receipts/${id}`);
-  put(`trips/${S.tid}/expenses/${id}`,withHist({desc:F.desc.trim()||'Expense',note:String(F.note||'').trim().slice(0,500),amount,cur:F.cur,rate,paidBy:F.paidBy,payers:PC.payers||null,date:F.date||today(),split:items?{mode:'items',parts,items,...(F.xs?.some(x=>num(x.a))?{extras:F.xs.filter(x=>num(x.a)).map(x=>({n:(x.n||'').trim()||'Extra',a:Math.round(num(x.a)*100)/100}))}:{})}:{mode:F.mode,parts,...(F.mode==='nights'?nightsMeta(parts):{})},receipt:receipt||null,createdBy:F.createdBy||me,createdAt:F.createdAt||Date.now(),updatedAt:Date.now(),updatedBy:me}));
+  put(`trips/${S.tid}/expenses/${id}`,withHist({desc:F.desc.trim()||'Expense',note:String(F.note||'').trim().slice(0,500),settled:!!F.settled,amount,cur:F.cur,rate,paidBy:F.paidBy,payers:PC.payers||null,date:F.date||today(),split:items?{mode:'items',parts,items,...(F.xs?.some(x=>num(x.a))?{extras:F.xs.filter(x=>num(x.a)).map(x=>({n:(x.n||'').trim()||'Extra',a:Math.round(num(x.a)*100)/100}))}:{})}:{mode:F.mode,parts,...(F.mode==='nights'?nightsMeta(parts):{})},receipt:receipt||null,createdBy:F.createdBy||me,createdAt:F.createdAt||Date.now(),updatedAt:Date.now(),updatedBy:me}));
   if(foreign&&num(S.trip.rates?.[F.cur])!==rate)tripSave({rates:{...(S.trip.rates||{}),[F.cur]:rate}});
   logAct(`${F.id?'edited':'added'} ${F.desc.trim()||'Expense'} (${money(amount,F.cur)})`);const wasEdit=!!F.id;closeSheet();toast(wasEdit?'Expense updated':'Expense added')}
 function tripSave(patch){return put('trips/'+S.tid,{...S.tripRaw,...patch})}
@@ -625,14 +629,14 @@ const payBox=id=>{const t=payOf(id);return t?`<span class="payid"><span><small>$
 function showPerson(id){const me=S.me[S.tid],who=x=>x===me?'You':mname(x),cv=(v,c)=>c===home()?fc(Math.round(v*100)):money(v,c),{net}=calc();
   let paid=0,share=0;const rows=[];
   const exps=[...S.exp].sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.createdAt||0)-(a.createdAt||0));
-  for(const e of exps){const c=eCents(e);if(!(c>0))continue;const mine=alloc(c,weights(e))[id]||0,pm=paidOf(e,c)[id]||0,payer=pm>0;if(payer)paid+=pm;share+=mine;if(!mine&&!payer)continue;
+  for(const e of exps){const c=eCents(e);if(!(c>0))continue;const mine=alloc(c,weights(e))[id]||0,pm=paidOf(e,c)[id]||0,payer=pm>0;if(!e.settled){if(payer)paid+=pm;share+=mine}if(!mine&&!payer)continue;
     let detail='';
     if(mine&&e.split?.mode==='items'&&Array.isArray(e.split.items)){const its=e.split.items,isum=its.reduce((t,x)=>t+num(x.p),0),extra=Math.round((num(e.amount)-isum)*100)/100,asum=its.filter(x=>(x.who||[]).length).reduce((t,x)=>t+num(x.p),0);let myItems=0;const lines=[];
       its.forEach(x=>{const w=x.who||[];if(w.includes(id)){const part=num(x.p)/w.length;myItems+=part;lines.push(`<li${x.of!=null?' class="ao"':''}><span>${x.of!=null?'↳ ':''}${esc(x.n)}${w.length>1?` <small>${fracLabel(w.length)} of ${esc(cv(num(x.p),e.cur))}</small>`:''}</span><span>${esc(cv(part,e.cur))}</span></li>`)}});
       if(extra&&asum>0&&myItems>0){const xl=Array.isArray(e.split.extras)&&e.split.extras.length&&Math.abs(e.split.extras.reduce((t,x)=>t+num(x.a),0)-extra)<0.02?e.split.extras:[{n:extra>0?'Share of extras':'Share of discount',a:extra}];for(const x of xl){const v=myItems/asum*num(x.a);lines.push(`<li class="ex"><span>${esc(xl.length>1||Array.isArray(e.split.extras)?x.n:x.n)}</span><span>${v<0?'−':''}${esc(cv(Math.abs(v),e.cur))}</span></li>`)}}
       detail=lines.length?`<ul class="pitems">${lines.join('')}</ul>`:''}
     else if(mine){const n=Object.keys(weights(e)).length,m=e.split?.mode;detail=`<p class="hint pnote">${m==='exact'?'Exact amounts':m==='shares'?'Split by shares':m==='nights'?(()=>{const w=weights(e),t=Object.values(w).reduce((a,v)=>a+v,0);const dd=e.split?.dates?.[id];return `By nights · ${w[id]} night${w[id]===1?'':'s'}${dd?` (${esc(dShort(dd.f))} – ${esc(dShort(dd.t))})`:''} of ${Math.round(t*100)/100} across everyone`})():m==='percent'?'Split by %':n===members().length?`Split equally with everyone (${n})`:`Split equally ${n} ways`}</p>`}
-    rows.push(`<div class="pe"><div class="pe-h"><span><b>${esc(e.desc)}</b><small>${esc(fmtDate(e.date))}${payer?` · ${esc(who(id))} paid ${fc(pm)}`:''}${e.cur!==home()?` · ${esc(money(num(e.amount),e.cur))}`:''}</small></span><span class="amt">${mine?fc(mine):'<small>not in it</small>'}</span></div>${detail}</div>`)}
+    rows.push(`<div class="pe"><div class="pe-h"><span><b>${esc(e.desc)}</b><small>${esc(fmtDate(e.date))}${payer?` · ${esc(who(id))} paid ${fc(pm)}`:''}${e.cur!==home()?` · ${esc(money(num(e.amount),e.cur))}`:''}${e.settled?' · already settled':''}</small></span><span class="amt">${mine?fc(mine):'<small>not in it</small>'}</span></div>${detail}</div>`)}
   let sent=0,recv=0;for(const p of S.pay){if(p.from===id)sent+=num(p.cents);if(p.to===id)recv+=num(p.cents)}
   const n=net[id]||0,plan=settle(net).filter(p=>p.from===id||p.to===id);
   $('#sheet').hidden=false;const P=$('#panel');
