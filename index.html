@@ -730,6 +730,16 @@ body.selmode .fab{display:none!important}
 .sec h2::before{content:"";display:inline-block;width:4px;height:.9em;border-radius:2px;background:var(--teal);margin-right:8px;vertical-align:-1px}
 .looksec>summary h2::before{content:"";display:inline-block;width:4px;height:.9em;border-radius:2px;background:var(--teal);margin-right:8px;vertical-align:-1px}
 .tabs button[aria-current=true]{color:light-dark(var(--teal),#fff)!important}
+/* Receipt and History boxes: black with white text */
+.rprev,.hist{background:light-dark(#1c1c1e,#2c2c2e)!important;color:#fff!important;box-shadow:none!important;border:0!important}
+.rprev .scan,.rprev span{color:#fff}
+.rprev .btn{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.35)}
+.rprev .btn.danger{color:#ff8a8a;border-color:rgba(255,138,138,.45)}
+.hist summary{color:#fff}
+.hist .hl{color:#fff}
+.hist .hl ul{color:rgba(255,255,255,.92)}
+.hist .hl .hw{color:rgba(255,255,255,.6)}
+.hist .hl>li{border-left-color:rgba(255,255,255,.25)}
 </style></head><body>
 <div class="sync" id="sync" hidden></div>
 <header class="top" id="top"></header>
