@@ -213,7 +213,7 @@ function fitName(el){if(el.tagName==='TEXTAREA')return fitArea(el);el.style.font
 function fitArea(el){if(/\n/.test(el.value)){el.value=el.value.replace(/\s*\n+\s*/g,' ');el.dispatchEvent(new Event('input',{bubbles:true}))}
   el.style.fontSize='';el.style.lineHeight='';el.style.height='';el.style.marginBlock='';el.title=el.value||'';
   if(el.scrollHeight<=el.clientHeight+1)return;
-  const cs=getComputedStyle(el),fs=parseFloat(cs.fontSize)||16;el.style.fontSize=(fs*.85).toFixed(2)+'px';el.style.lineHeight='1.2';el.style.height='auto';
+  const cs=getComputedStyle(el);el.style.lineHeight='1.25';el.style.height='auto';
   const h=Math.max(parseFloat(cs.minHeight)||0,el.scrollHeight+2);el.style.height=h+'px';
   const m=/matrix\(([-\d.]+)/.exec(cs.transform||''),sc=m?parseFloat(m[1]):1;if(sc<1)el.style.marginBlock=(-(h*(1-sc))/2).toFixed(2)+'px'}
 document.addEventListener('keydown',ev=>{const t=ev.target;if(ev.key==='Enter'&&t.tagName==='TEXTAREA'&&t.classList.contains('iname')){ev.preventDefault();t.closest('.icell')?.querySelector('.iprice')?.focus()}});
