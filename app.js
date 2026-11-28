@@ -276,22 +276,24 @@ document.addEventListener('keydown',ev=>{if(ev.key==='Escape'&&document.getEleme
 // ---- Search and filter the expense list ----
 function settledTot(me){let c=0,m=0;for(const e of S.exp){if(!e.settled)continue;const x=eCents(e);if(!(x>0))continue;c+=x;if(me)m+=alloc(x,weights(e))[me]||0}return {c,m}}
 document.addEventListener('change',ev=>{if(ev.target.id==='f-settled'&&typeof F!=='undefined'&&F)F.settled=ev.target.checked});
+function xslKeep(x){const r=document.querySelector('.xchips');if(!r)return;r.scrollLeft=x;const p=r.querySelector('[aria-pressed="true"]');if(p){const a=p.offsetLeft-r.offsetLeft,b=a+p.offsetWidth;if(a<r.scrollLeft)r.scrollLeft=a-8;else if(b>r.scrollLeft+r.clientWidth)r.scrollLeft=b-r.clientWidth+8}}
 function xqKeep(a){if(!a)return;const i=document.getElementById('xq');if(!i)return;i.focus();try{i.setSelectionRange(a[0],a[0])}catch(e){}}
 var XF={q:'',f:'',tid:null};
 function xfReset(){if(XF.tid!==S.tid)XF={q:'',f:'',tid:S.tid}}
 function xfOk(e){xfReset();const me=S.me[S.tid],c=eCents(e);
   if(XF.f==='paid'&&!((paidOf(e,c)[me]||0)>0))return false;
   if(XF.f==='mine'&&!((alloc(c,weights(e))[me]||0)>0))return false;
+  if(XF.f==='settled'&&!e.settled)return false;
   if(XF.f.startsWith('cat:')&&catOf(e)!==XF.f.slice(4))return false;
   const q=XF.q.trim().toLowerCase();if(!q)return true;
   const pay=e.payers?Object.keys(e.payers).map(mname):[mname(e.paidBy)];
-  const hay=[e.desc,e.note,...pay,...(e.split?.items||[]).map(it=>it.n||''),ECAT[catOf(e)]?.[0],String(num(e.amount)),(c/100).toFixed(2)].join(' ').toLowerCase();
+  const hay=[e.desc,e.note,...pay,...(e.split?.items||[]).map(it=>it.n||''),e.settled?'already settled':'',ECAT[catOf(e)]?.[0],String(num(e.amount)),(c/100).toFixed(2)].join(' ').toLowerCase();
   return q.split(/\s+/).every(w=>hay.includes(w.replace(/^\$/,'')))}
 const XFI={all:'',paid:'<rect x="2" y="6" width="20" height="13" rx="2"/><path d="M2 10h20"/>',mine:'<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/>'};
 const xfSvg=p=>p?`<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`:'';
 function xfBar(){xfReset();if(S.exp.length<2&&!XF.q&&!XF.f)return '';
   const cats=[...new Set(S.exp.map(catOf))].filter(k=>ECAT[k]).sort((a,b)=>Object.keys(ECAT).indexOf(a)-Object.keys(ECAT).indexOf(b));
-  const chips=[['','All',''],['paid','Paid by me',XFI.paid],['mine','My share',XFI.mine],...(cats.length>1?cats.map(k=>['cat:'+k,ECAT[k][0],ECAT[k][2]]):[])];
+  const chips=[['','All',''],['paid','Paid by me',XFI.paid],['mine','My share',XFI.mine],...(S.exp.some(e=>e.settled)||XF.f==='settled'?[['settled','Settled','<circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/>']]:[]),...(cats.length>1?cats.map(k=>['cat:'+k,ECAT[k][0],ECAT[k][2]]):[])];
   return `<div class="xf"><label class="xsrch"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input id="xq" type="search" placeholder="Search expenses, people or items" value="${esc(XF.q)}" autocomplete="off" enterkeyhint="search" aria-label="Search expenses">${XF.q?'<button type="button" class="xclr" data-act="xf-clear" aria-label="Clear search">×</button>':''}</label>
   <div class="xchips" role="group" aria-label="Filter expenses">${chips.map(([k,l,ic])=>`<button type="button" class="xchip" data-act="xf" data-f="${k}" aria-pressed="${XF.f===k}">${xfSvg(ic)}${esc(l)}</button>`).join('')}</div></div>`}
 function xfSummary(rows){if(!XF.q.trim()&&!XF.f)return '';const me=S.me[S.tid];let t=0,m=0;for(const e of rows){const c=eCents(e);t+=c;m+=alloc(c,weights(e))[me]||0}
@@ -375,7 +377,7 @@ function renderTop(){const t=$('#top');
     const st=settledTot(me);$('#hcard').innerHTML=`<p class="bal1"><span>${lab}</span><b class="big ${me&&n>0?'pos':me&&n<0?'neg':''}">${fc(me?Math.abs(n):spent)}</b></p>${st.c&&me?`<p class="bsub">Not counting ${fc(st.c)} already settled</p>`:''}<div class="hstats"><div class="hs main"><span>Total spent</span><b>${fc(spent)}</b>${st.c?`<small>${fc(st.c)} settled</small>`:''}</div>${me?`<div class="hs"><span>Your share</span><b>${fc(share[me]||0)}</b>${st.m?`<small>${fc(st.m)} settled</small>`:''}</div>`:''}<div class="hs"><span>Expenses</span><b>${S.exp.length}</b></div></div>`;$('#hcard').hidden=false;
   }else{paintHome(t);$('#hcard').hidden=true}}
 
-function render(){const xqa=document.activeElement?.id==='xq'?[document.activeElement.selectionStart]:null;renderTop();syncBadge();const a=$('#app'),fab=$('#fab');fab.hidden=true;
+function render(){const xqa=document.activeElement?.id==='xq'?[document.activeElement.selectionStart]:null,xsl=document.querySelector('.xchips')?.scrollLeft||0;renderTop();syncBadge();const a=$('#app'),fab=$('#fab');fab.hidden=true;
   if(S.setup){a.innerHTML=`<section class="band"><div class="empty"><h2>Almost ready</h2><p class="muted">Paste your Firebase config into <b>firebase-config.js</b>, then upload the folder again.</p></div></section>`;return}
   if(!S.tid){a.innerHTML=homeView();return}
   if(!S.trip){a.innerHTML=`<section class="band"><p class="muted">${S.tripMissing?"This trip link doesn't work. Check you have the whole link.":S.stale?"Can't reach this trip yet. Check your signal.":'Loading trip…'}</p><a class="btn" href="./">All trips</a></section>`;return}
@@ -384,7 +386,7 @@ function render(){const xqa=document.activeElement?.id==='xq'?[document.activeEl
   const tabs=[['exp','Expenses'],['settle','Settle up'],['trip','Settings']];
   a.innerHTML=`<nav class="tabs">${tabs.map(([k,l])=>`<button type="button" data-act="tab" data-tab="${k}" aria-current="${S.tab===k}">${TABIC[k]||''}<span>${l}</span></button>`).join('')}</nav>`+
     (S.tab!=='trip'?doneBar():'')+(S.tab==='exp'?expView():S.tab==='settle'?settleView():tripView());
-  fab.hidden=S.tab==='trip'||!!S.trip.done;collapseTrip();xqKeep(xqa)}
+  fab.hidden=S.tab==='trip'||!!S.trip.done;collapseTrip();xqKeep(xqa);xslKeep(xsl)}
 
 const pRow=first=>`<li><input name="members" maxlength="30" placeholder="${first?'Your name':'Name'}" autocomplete="off" aria-label="${first?'Your name':'Person'}"><button type="button" class="x" data-act="prm" aria-label="Remove">×</button></li>`;
 function addPerson(after){const ul=$('#plist');if(!ul)return;const t=document.createElement('template');t.innerHTML=pRow(false);const li=t.content.firstChild;after?after.after(li):ul.append(li);li.querySelector('input').focus()}
