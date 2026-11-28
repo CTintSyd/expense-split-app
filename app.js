@@ -228,6 +228,9 @@ function collapseTrip(){if(S.tab!=='trip')return;document.querySelectorAll('#app
   d.className='sec tsec';d.open=TOPEN.has(title);p.className='tsum';if(hint){p.innerHTML=hint.innerHTML;hint.remove()}else p.textContent=TDESC[title]||'';
   sm.append(h,p);body.className='tbody';while(sec.firstChild)body.append(sec.firstChild);d.append(sm,body);
   d.addEventListener('toggle',()=>{d.open?TOPEN.add(title):TOPEN.delete(title)});sec.replaceWith(d)})}
+const TABIC={exp:'<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg>',
+  settle:'<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h14M14 4l4 4-4 4"/><path d="M20 16H6M10 12l-4 4 4 4"/></svg>',
+  trip:'<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>'};
 // ---- Trip colour and cover photo ----
 const TCOL=[['#2f6fde','Blue'],['#e0673a','Orange'],['#2e9d6a','Green'],['#8a5cd1','Purple'],['#d4477a','Pink'],['#14919f','Teal'],['#c48a1c','Gold'],['#47546e','Slate']];
 const tColor=(t,id)=>{if(/^#[0-9a-f]{6}$/i.test(t?.color||''))return t.color;let h=0;for(const c of String(id||''))h=(h*31+c.charCodeAt(0))>>>0;return TCOL[h%TCOL.length][0]};
@@ -302,7 +305,7 @@ function render(){renderTop();syncBadge();const a=$('#app'),fab=$('#fab');fab.hi
   const me=S.me[S.tid];
   if(!me||!members().some(m=>m.id===me)){a.innerHTML=`<section class="band who"><h2>Who are you?</h2><p class="muted">Pick your name so new expenses default to you. You can change it later.</p><div class="chips">${members().map(m=>`<button type="button" class="chip" data-act="iam" data-id="${esc(m.id)}">${av(m.id)}${esc(m.name)}</button>`).join('')}</div></section>`;return}
   const tabs=[['exp','Expenses'],['settle','Settle up'],['trip','Settings']];
-  a.innerHTML=`<nav class="tabs">${tabs.map(([k,l])=>`<button type="button" data-act="tab" data-tab="${k}" aria-current="${S.tab===k}">${l}</button>`).join('')}</nav>`+
+  a.innerHTML=`<nav class="tabs">${tabs.map(([k,l])=>`<button type="button" data-act="tab" data-tab="${k}" aria-current="${S.tab===k}">${TABIC[k]||''}<span>${l}</span></button>`).join('')}</nav>`+
     (S.tab==='exp'?expView():S.tab==='settle'?settleView():tripView());
   fab.hidden=S.tab==='trip';collapseTrip()}
 
