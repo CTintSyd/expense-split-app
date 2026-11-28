@@ -220,6 +220,14 @@ document.addEventListener('keydown',ev=>{const t=ev.target;if(ev.key==='Enter'&&
 function fitNames(){document.querySelectorAll('.igrid .iname').forEach(fitName)}
 document.addEventListener('input',ev=>{if(ev.target.classList?.contains('iname'))fitName(ev.target)});
 window.addEventListener('resize',()=>{if(document.querySelector('.igrid'))fitNames()});
+// ---- Trip tab: every section folds away, with a one-line summary showing when closed ----
+var TOPEN=new Set();
+const TDESC={'Activity':'Everything added, edited, deleted or paid back on this trip, newest first.','Getting friends in':'How to invite friends to this trip on claude.ai.','Invite friends':'Share the trip link so everyone can add their own expenses.'};
+function collapseTrip(){if(S.tab!=='trip')return;document.querySelectorAll('#app .band > .sec:not(details)').forEach(sec=>{const h=sec.querySelector(':scope > h2');if(!h)return;
+  const title=h.textContent.trim(),hint=h.nextElementSibling?.classList.contains('hint')?h.nextElementSibling:null,d=document.createElement('details'),sm=document.createElement('summary'),p=document.createElement('p'),body=document.createElement('div');
+  d.className='sec tsec';d.open=TOPEN.has(title);p.className='tsum';if(hint){p.innerHTML=hint.innerHTML;hint.remove()}else p.textContent=TDESC[title]||'';
+  sm.append(h,p);body.className='tbody';while(sec.firstChild)body.append(sec.firstChild);d.append(sm,body);
+  d.addEventListener('toggle',()=>{d.open?TOPEN.add(title):TOPEN.delete(title)});sec.replaceWith(d)})}
 // ---- Trip colour and cover photo ----
 const TCOL=[['#2f6fde','Blue'],['#e0673a','Orange'],['#2e9d6a','Green'],['#8a5cd1','Purple'],['#d4477a','Pink'],['#14919f','Teal'],['#c48a1c','Gold'],['#47546e','Slate']];
 const tColor=(t,id)=>{if(/^#[0-9a-f]{6}$/i.test(t?.color||''))return t.color;let h=0;for(const c of String(id||''))h=(h*31+c.charCodeAt(0))>>>0;return TCOL[h%TCOL.length][0]};
@@ -233,7 +241,7 @@ function paintTop(el,back){noteLast();setAccent(tripAccent(S.trip,S.tid));const 
   el.innerHTML=`${cv?`<img class="covimg" src="${cv}" alt="">`:sc?scnSvg(sc):''}<div class="topin"><a class="back" href="${back}">All trips</a><h1>${esc(S.trip.name)}</h1></div>`}
 var LOOKOPEN=false;document.addEventListener('toggle',e=>{if(e.target?.classList?.contains('looksec'))LOOKOPEN=e.target.open},true);
 function lookView(){const t=S.trip,c=tColor(t,S.tid),cv=coverFor(S.tid,t),w=S.canWrite!==false,sc=!cv&&SCN[t.scene]?t.scene:'';
-  return `<details class="sec looksec"${LOOKOPEN?' open':''}><summary><h2>Name, cover and colour</h2><span class="lksub">${esc(cv?'Your photo':sc?SCN[sc][0]:'Colour only')}</span></summary><div class="card look">${w?`<form class="tnrow" id="tn-form"><input id="tn-name" value="${esc(t.name)}" maxlength="60" aria-label="Trip or group name" required><button class="btn small">Save name</button></form>`:''}<div class="lkprev${cv||sc?' pic':''}" style="--tc:${c}">${cv?`<img src="${cv}" alt="Cover photo">`:sc?scnSvg(sc,'lksvg'):''}<b>${esc(t.name)}</b></div>
+  return `<details class="sec looksec"${LOOKOPEN?' open':''}><summary><h2>Name, cover and colour</h2><p class="tsum">Rename the trip and choose its cover photo, landscape or colour. Now: ${esc(cv?'your photo':sc?SCN[sc][0]:'colour only')}.</p></summary><div class="card look">${w?`<form class="tnrow" id="tn-form"><input id="tn-name" value="${esc(t.name)}" maxlength="60" aria-label="Trip or group name" required><button class="btn small">Save name</button></form>`:''}<div class="lkprev${cv||sc?' pic':''}" style="--tc:${c}">${cv?`<img src="${cv}" alt="Cover photo">`:sc?scnSvg(sc,'lksvg'):''}<b>${esc(t.name)}</b></div>
     ${w?`<div class="lkrow"><label class="btn small file" id="cov-btn">${t.cover?'Change photo':'Add a cover photo'}<input type="file" accept="image/*" id="cov-file"></label>${t.cover?'<button type="button" class="btn small danger" data-act="cov-rm">Remove photo</button>':''}</div>
     <div class="scnpick" role="radiogroup" aria-label="Landscape"><span class="imlbl">Or pick a landscape</span><div class="scngrid">${Object.entries(SCN).map(([k,[n]])=>`<button type="button" class="scnb${!cv&&t.scene===k?' on':''}" data-act="cov-scn" data-k="${k}" role="radio" aria-checked="${!cv&&t.scene===k}">${scnSvg(k,'mini')}<span>${n}</span></button>`).join('')}<button type="button" class="scnb none${!cv&&!sc?' on':''}" data-act="cov-scn" data-k="" role="radio" aria-checked="${!cv&&!sc}"><i style="background:${c}"></i><span>Just colour</span></button></div></div>
     <div class="swatches" role="radiogroup" aria-label="Trip colour">${TCOL.map(([h,n])=>`<button type="button" class="sw${h===c?' on':''}" style="--sw:${h}" data-act="cov-col" data-c="${h}" role="radio" aria-checked="${h===c}" aria-label="${n}"></button>`).join('')}</div>
@@ -296,7 +304,7 @@ function render(){renderTop();syncBadge();const a=$('#app'),fab=$('#fab');fab.hi
   const tabs=[['exp','Expenses'],['settle','Settle up'],['trip','Trip']];
   a.innerHTML=`<nav class="tabs">${tabs.map(([k,l])=>`<button type="button" data-act="tab" data-tab="${k}" aria-current="${S.tab===k}">${l}</button>`).join('')}</nav>`+
     (S.tab==='exp'?expView():S.tab==='settle'?settleView():tripView());
-  fab.hidden=S.tab==='trip'}
+  fab.hidden=S.tab==='trip';collapseTrip()}
 
 const pRow=first=>`<li><input name="members" maxlength="30" placeholder="${first?'Your name':'Name'}" autocomplete="off" aria-label="${first?'Your name':'Person'}"><button type="button" class="x" data-act="prm" aria-label="Remove">×</button></li>`;
 function addPerson(after){const ul=$('#plist');if(!ul)return;const t=document.createElement('template');t.innerHTML=pRow(false);const li=t.content.firstChild;after?after.after(li):ul.append(li);li.querySelector('input').focus()}

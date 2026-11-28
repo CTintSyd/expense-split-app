@@ -750,6 +750,18 @@ body.selmode .fab{display:none!important}
 @media(max-width:600px){.igrid .icell textarea.iname{height:34px;min-height:34px;font-size:16px;padding:2px 8px;line-height:28px;border-radius:10px;transform:scale(.56);transform-origin:0 50%;margin-block:-7.5px}}
 .igrid .icell textarea.iname{font-size:15px}
 @media(max-width:600px){.igrid .icell textarea.iname{font-size:14px}}
+/* Collapsible Trip tab sections */
+.band>.tsec,.band>.looksec{margin:0;padding:14px 0;border-top:.5px solid var(--line)}
+.band>.tsec:first-child,.band>.looksec:first-child{border-top:0;padding-top:4px}
+.tsec>summary,.looksec>summary{list-style:none;cursor:pointer;display:grid!important;grid-template-columns:minmax(0,1fr) auto;column-gap:12px;align-items:start;padding:0!important}
+.tsec>summary::-webkit-details-marker{display:none}
+.tsec>summary h2,.looksec>summary h2{grid-column:1;margin:0!important}
+.tsec>summary .tsum,.looksec>summary .tsum{grid-column:1;margin:4px 0 0!important;color:var(--muted);font-size:15px;line-height:1.4}
+.tsec>summary::after,.looksec>summary::after{content:"";grid-column:2;grid-row:1/span 2;align-self:center;width:9px;height:9px;border:solid var(--muted);border-width:0 2px 2px 0;transform:rotate(45deg);margin:-4px 4px 0 0!important;transition:transform .2s}
+.tsec[open]>summary::after,.looksec[open]>summary::after{transform:rotate(-135deg);margin-top:4px!important}
+.tsec>.tbody{padding-top:12px}
+.looksec>.look{margin-top:12px}
+.tsec>summary,.looksec>summary{row-gap:0!important}
 </style></head><body>
 <div class="sync" id="sync" hidden></div>
 <header class="top" id="top"></header>
