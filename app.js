@@ -30,7 +30,7 @@ const mname=id=>members().find(m=>m.id===id)?.name||'Someone';
 const home=()=>S.trip?.home||'AUD';
 const fc=c=>money(c/100,home(),true);
 const homePic={get(){try{return localStorage.getItem('es-homepic')||''}catch(e){return ''}},set(v){try{if(v)localStorage.setItem('es-homepic',v);else localStorage.removeItem('es-homepic');return true}catch(e){return false}}};
-function paintHome(el){const pic=homePic.get();el.className='top home'+(pic?' hasimg':'');el.style.removeProperty('--tc');
+function paintHome(el){setAccent(null);const pic=homePic.get();el.className='top home'+(pic?' hasimg':'');el.style.removeProperty('--tc');
   el.innerHTML=(pic?`<img class="covimg" src="${pic}" alt="">`:SCENE)+`<div class="topin"><h1>EZ Expenses</h1><p class="sub">Expenses made easy</p><ul class="hfeat"><li><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9 8h6M9 12h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span><b>Split a restaurant bill by dish.</b> Tick who had what and everyone pays for their own order. Any extra charges like weekend fees? Allocated automatically.</span></li><li><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 4v10M7.5 9.5L12 14l4.5-4.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span><b>Add dozens of expenses at once.</b> Upload a bank CSV or screenshots of your transactions, tick the shared ones and add them all in one go.</span></li><li><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><span><b>Split by nights.</b> Booked 10 nights but someone only stays 4? They pay for 4.</span></li></ul></div><div class="hpics"><label class="hpic"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.5" fill="none" stroke="currentColor" stroke-width="2"/></svg>${pic?'Change photo':'Use my photo'}<input type="file" accept="image/*" id="hpic-file"></label>${pic?'<button type="button" class="hpic" data-act="hpic-reset">Back to the road</button>':''}</div>`}
 document.addEventListener('click',ev=>{const b=ev.target.closest?.('[data-act="hpic-reset"]');if(!b)return;homePic.set('');renderTop()});
 document.addEventListener('change',async ev=>{const t=ev.target;if(t.id!=='hpic-file'||!t.files?.[0])return;const f=t.files[0];t.value='';
@@ -173,6 +173,37 @@ function exportCSV(){const ms=members(),h=home(),c2=c=>(c/100).toFixed(2),rows=[
   catch(e){toast("Couldn't download on this device")}}
 const exportView=()=>`<div class="sec"><h2>Export</h2><p class="hint" style="margin:-6px 0 10px">Download every expense as a CSV file that opens in Excel, Numbers or Google Sheets. It includes each person's share and the totals.</p><button type="button" class="btn" data-act="csv">Download spreadsheet (CSV)</button></div>`;
 document.addEventListener('click',ev=>{const b=ev.target.closest?.('[data-act="csv"]');if(b&&S.trip)exportCSV()});
+// ---- Trip accent colour across the trip's screens ----
+const SCN_COL={road:'#2f4a8f',city:'#6a3d8f',beach:'#1f7fb8',snow:'#3f6fae',lake:'#2f7fa8',desert:'#b8612a',country:'#3f8f3a',tropic:'#c4503f'};
+const hexRgb=h=>{h=h.replace('#','');return [0,2,4].map(i=>parseInt(h.slice(i,i+2),16))};
+const rgbHex=a=>'#'+a.map(v=>Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0')).join('');
+const lum=a=>{const c=a.map(v=>{v/=255;return v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4)});return .2126*c[0]+.7152*c[1]+.0722*c[2]};
+const contrast=(a,b)=>{const x=lum(a),y=lum(b);return (Math.max(x,y)+.05)/(Math.min(x,y)+.05)};
+function fitColour(hex,bg,dir){let a=hexRgb(hex);const b=hexRgb(bg);for(let i=0;i<20&&contrast(a,b)<4.5;i++)a=a.map(v=>dir<0?v*.9:v+(255-v)*.15);return rgbHex(a)}
+function tripAccent(t,id){return /^#[0-9a-f]{6}$/i.test(t?.color||'')?t.color:SCN_COL[t?.scene]||tColor(t,id)}
+function setAccent(hex){const r=document.documentElement.style;if(!hex){['--ochre','--teal','--acc-soft'].forEach(k=>r.removeProperty(k));return}
+  const btn=fitColour(hex,'#ffffff',-1),dk=fitColour(hex,'#1c1c1e',1);r.setProperty('--ochre',btn);r.setProperty('--teal',`light-dark(${btn},${dk})`);r.setProperty('--acc-soft',`color-mix(in srgb,${btn} 12%,transparent)`)}
+// ---- Expense type icons ----
+const ECAT={
+  food:['Food','#e0673a','<path d="M7 3v7a2 2 0 0 0 2 2v9M5 3v4a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V3M17 21V3c-2 1-3 4-3 8h3"/>'],
+  drinks:['Drinks','#2f6fde','<path d="M5 8h11v5a5.5 5.5 0 0 1-11 0z"/><path d="M16 10h1.5a2.5 2.5 0 0 1 0 5H16M8 3v2M12 3v2"/>'],
+  groceries:['Groceries','#2e9d6a','<path d="M3 4h2l2.5 11h10l2-8H6.5"/><circle cx="9" cy="19" r="1.5"/><circle cx="17" cy="19" r="1.5"/>'],
+  transport:['Transport','#14919f','<path d="M5 16h14v-4l-2-5H7l-2 5zM5 12h14"/><circle cx="8" cy="16.5" r="1.8"/><circle cx="16" cy="16.5" r="1.8"/>'],
+  stay:['Accommodation','#8a5cd1','<path d="M3 18V7M3 13h18v5M21 13a3 3 0 0 0-3-3h-7v3"/><circle cx="7" cy="10.5" r="1.5"/>'],
+  fun:['Activities','#d4477a','<path d="M4 7h16v3a2 2 0 0 0 0 4v3H4v-3a2 2 0 0 0 0-4z"/><path d="M14 8v1.5M14 11.5v1M14 14.5V16"/>'],
+  shop:['Shopping','#c48a1c','<path d="M5 8h14l-1 12H6z"/><path d="M9 8a3 3 0 0 1 6 0"/>'],
+  other:['Other','#5d6984','<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>']};
+const ECAT_RE=[
+  ['stay',/airbnb|hotel|motel|hostel|booking\.com|stayz|lodge|chalet|resort|accommodation|apartment|ryokan|\brent\b|cabin|nights?\b/],
+  ['transport',/uber|didi|ola\b|taxi|cab\b|fuel|petrol|diesel|shell|caltex|ampol|\bbp\b|7-eleven fuel|train|metro|subway|bus\b|ferry|flight|airline|qantas|jetstar|virgin|rex\b|parking|toll|linkt|e-?toll|van\b|car hire|rental car|hertz|avis|budget|europcar|shinkansen|jr\b|suica|opal|myki|go card|transfer/],
+  ['groceries',/woolworths|coles|aldi|\biga\b|harris farm|costco|supermarket|grocer|lawson|familymart|family mart|seven ?eleven|7-eleven|7 eleven|ministop|daily yamazaki|don quijote|aeon|market/],
+  ['drinks',/\bbar\b|pub\b|brew|beer|wine|cellar|bottle|liquor|bws|dan murphy|cocktail|tavern|hotel bar|coffee|caf[eé]|espresso|latte|tea\b|juice|smoothie|kombucha|izakaya/],
+  ['fun',/ticket|lift|ski|snowboard|lesson|tour|museum|gallery|entry|admission|park\b|onsen|spa\b|massage|cinema|movie|concert|festival|show\b|zoo|aquarium|surf|dive|kayak|golf|bowling|karaoke/],
+  ['shop',/uniqlo|kmart|target|big w|myer|david jones|jb hi|apple|amazon|daiso|muji|shop|store|souvenir|clothing|pharmacy|chemist/],
+  ['food',/dinner|lunch|breakfast|brunch|restaurant|cafe|bistro|kitchen|grill|pizza|burger|sushi|ramen|noodle|thai|indian|kebab|bakery|eat|food|takeaway|mcdonald|kfc|hungry jack|subway sandwich|menulog|deliveroo|doordash|uber ?eats|bayleaf|ducks|tacos/]];
+function catOf(e){if(e.split?.mode==='items'&&Array.isArray(e.split.items)&&e.split.items.length){let f=0,d=0;for(const it of e.split.items){if((it.c||'food')==='drink')d+=num(it.p);else if((it.c||'food')==='food')f+=num(it.p)}if(f||d)return d>f?'drinks':'food'}
+  const t=String(e.desc||'').toLowerCase()+' '+String(e.note||'').toLowerCase();if(/uber ?eats|menulog|deliveroo|doordash/.test(t))return 'food';for(const [k,re] of ECAT_RE)if(re.test(t))return k;return e.split?.mode==='nights'?'stay':'other'}
+function catIcon(e){const k=catOf(e),[lab,col,path]=ECAT[k];return `<span class="eic" style="--ec:${col}" title="${lab}"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${path}</svg>${av(e.paidBy,'xs')}</span>`}
 // ---- Trip colour and cover photo ----
 const TCOL=[['#2f6fde','Blue'],['#e0673a','Orange'],['#2e9d6a','Green'],['#8a5cd1','Purple'],['#d4477a','Pink'],['#14919f','Teal'],['#c48a1c','Gold'],['#47546e','Slate']];
 const tColor=(t,id)=>{if(/^#[0-9a-f]{6}$/i.test(t?.color||''))return t.color;let h=0;for(const c of String(id||''))h=(h*31+c.charCodeAt(0))>>>0;return TCOL[h%TCOL.length][0]};
@@ -182,7 +213,7 @@ function coverFor(tid,t){if(!t?.cover)return '';const c=COV[tid];if(c&&c.at===t.
     covGet(tid).then(d=>{COV[tid]={at:want,data:d||''};if(S.tid===tid){renderTop();if(S.tab==='trip')render()}}).catch(()=>{COV[tid]={at:want,data:''}})}
   return COV[tid].data}
 const tileFor=(id,t)=>`<span class="tico" style="--tc:${tColor(t,id)}" aria-hidden="true">${t?.thumb?`<img src="${esc(t.thumb)}" alt="">`:SCN[t?.scene]?scnSvg(t.scene,'tsvg'):esc((String(t?.name||'?').trim()[0]||'?').toUpperCase())}</span>`;
-function paintTop(el,back){noteLast();const c=tColor(S.trip,S.tid),cv=coverFor(S.tid,S.trip),sc=!cv&&SCN[S.trip.scene]?S.trip.scene:'';el.className='top tm'+(cv||sc?' hasimg':'');el.style.setProperty('--tc',c);
+function paintTop(el,back){noteLast();setAccent(tripAccent(S.trip,S.tid));const c=tColor(S.trip,S.tid),cv=coverFor(S.tid,S.trip),sc=!cv&&SCN[S.trip.scene]?S.trip.scene:'';el.className='top tm'+(cv||sc?' hasimg':'');el.style.setProperty('--tc',c);
   el.innerHTML=`${cv?`<img class="covimg" src="${cv}" alt="">`:sc?scnSvg(sc):''}<div class="topin"><a class="back" href="${back}">All trips</a><h1>${esc(S.trip.name)}</h1></div>`}
 var LOOKOPEN=false;document.addEventListener('toggle',e=>{if(e.target?.classList?.contains('looksec'))LOOKOPEN=e.target.open},true);
 function lookView(){const t=S.trip,c=tColor(t,S.tid),cv=coverFor(S.tid,t),w=S.canWrite!==false,sc=!cv&&SCN[t.scene]?t.scene:'';
@@ -270,7 +301,7 @@ function expView(){if(!S.exp.length)return `<section class="band"><div class="em
   const me=S.me[S.tid],rows=[...S.exp].sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.createdAt||0)-(a.createdAt||0)),days=[];
   for(const e of rows){const d=e.date||'';if(!days.length||days[days.length-1].d!==d)days.push({d,items:[]});days[days.length-1].items.push(e)}
   return `<section class="band"><div class="imbar">${selTop()}${SEL?'':'<button type="button" class="btn small chipb" data-act="imx-open"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 4v10M7.5 9.5L12 14l4.5-4.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Import</button>'}</div>${days.map(g=>`<h3 class="day"><span>${esc(fmtDate(g.d))}</span><span>${fc(g.items.reduce((s,e)=>s+eCents(e),0))}</span></h3><ul class="list">${g.items.map(e=>{const c=eCents(e),mine=alloc(c,weights(e))[me]||0;
-    return `<li class="swl${SEL?.has(e.id)?' picked':''}"><button type="button" class="xdel" data-act="sw-del" data-id="${esc(e.id)}" tabindex="-1">Delete</button><button type="button" class="exp${SEL?' sel':''}" data-act="edit" data-id="${esc(e.id)}">${SEL?`<span class="selck${SEL.has(e.id)?' on':''}" aria-hidden="true"></span>`:''}${av(e.paidBy)}<span class="ed"><b>${esc(e.desc)}</b><small>${esc(payLabel(e,me))} paid, ${esc(splitLabel(e))}${e.receipt?', with receipt':''}</small>${e.note?`<small class="enote"><b>Note:</b> ${esc(e.note)}</small>`:''}</span><span class="amt">${fc(c)}${e.cur!==home()?`<small>${esc(money(num(e.amount),e.cur))}</small>`:''}${mine?`<small class="mine">yours ${fc(mine)}</small>`:''}</span></button></li>`}).join('')}</ul>`).join('')}${selBar()}</section>`}
+    return `<li class="swl${SEL?.has(e.id)?' picked':''}"><button type="button" class="xdel" data-act="sw-del" data-id="${esc(e.id)}" tabindex="-1">Delete</button><button type="button" class="exp${SEL?' sel':''}" data-act="edit" data-id="${esc(e.id)}">${SEL?`<span class="selck${SEL.has(e.id)?' on':''}" aria-hidden="true"></span>`:''}${catIcon(e)}<span class="ed"><b>${esc(e.desc)}</b><small>${esc(payLabel(e,me))} paid, ${esc(splitLabel(e))}${e.receipt?', with receipt':''}</small>${e.note?`<small class="enote"><b>Note:</b> ${esc(e.note)}</small>`:''}</span><span class="amt">${fc(c)}${e.cur!==home()?`<small>${esc(money(num(e.amount),e.cur))}</small>`:''}${mine?`<small class="mine">yours ${fc(mine)}</small>`:''}</span></button></li>`}).join('')}</ul>`).join('')}${selBar()}</section>`}
 
 function settleView(){const {net}=calc(),me=S.me[S.tid],max=Math.max(1,...Object.values(net).map(Math.abs)),plan=settle(net);
   const who=id=>id===me?'You':mname(id);

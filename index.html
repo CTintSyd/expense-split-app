@@ -720,6 +720,16 @@ body.selmode .fab{display:none!important}
 .looksec>summary::after{content:"";width:9px;height:9px;border:solid var(--muted);border-width:0 2px 2px 0;transform:rotate(45deg);margin:-4px 4px 0 auto;transition:transform .2s}
 .looksec[open]>summary::after{transform:rotate(-135deg);margin-top:4px}
 .lksub{color:var(--muted);font-size:15px}
+/* Trip accent and expense type icons */
+.tabs button[aria-current=true]{color:var(--teal)!important}
+.seg button[aria-pressed=true]{color:var(--teal)}
+.eic{position:relative;flex:none;display:grid;place-items:center;width:40px;height:40px;border-radius:12px;background:color-mix(in srgb,var(--ec) 16%,transparent);color:var(--ec)}
+.eic .av.xs{position:absolute;right:-5px;bottom:-5px;width:20px;height:20px;font-size:10px!important;box-shadow:0 0 0 2px var(--card)}
+.day{color:var(--teal)}
+.hcard .bal2 b{color:var(--teal)}
+.sec h2::before{content:"";display:inline-block;width:4px;height:.9em;border-radius:2px;background:var(--teal);margin-right:8px;vertical-align:-1px}
+.looksec>summary h2::before{content:"";display:inline-block;width:4px;height:.9em;border-radius:2px;background:var(--teal);margin-right:8px;vertical-align:-1px}
+.tabs button[aria-current=true]{color:light-dark(var(--teal),#fff)!important}
 </style></head><body>
 <div class="sync" id="sync" hidden></div>
 <header class="top" id="top"></header>
