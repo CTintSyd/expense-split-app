@@ -714,6 +714,12 @@ body.selmode .fab{display:none!important}
 .hl>li{border-left:2px solid var(--line);padding-left:10px}
 .hl .hw{color:var(--muted);font-size:13px}
 .hl ul{margin:2px 0 0;padding-left:16px;color:var(--ink)}
+.looksec>summary{list-style:none;display:flex;align-items:center;gap:10px;cursor:pointer;padding:4px 0 10px}
+.looksec>summary::-webkit-details-marker{display:none}
+.looksec>summary h2{margin:0}
+.looksec>summary::after{content:"";width:9px;height:9px;border:solid var(--muted);border-width:0 2px 2px 0;transform:rotate(45deg);margin:-4px 4px 0 auto;transition:transform .2s}
+.looksec[open]>summary::after{transform:rotate(-135deg);margin-top:4px}
+.lksub{color:var(--muted);font-size:15px}
 </style></head><body>
 <div class="sync" id="sync" hidden></div>
 <header class="top" id="top"></header>
