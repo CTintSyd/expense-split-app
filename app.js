@@ -295,7 +295,7 @@ function renderTop(){const t=$('#top');
   if(S.tid&&S.trip){const me=S.me[S.tid],{net,share,spent}=calc(),n=me?net[me]||0:0;
     const lab=!me?'Trip total':n>0?"You're owed":n<0?'You owe':"You're all square";
     paintTop(t,'./');
-    $('#hcard').innerHTML=`<p class="bal1"><span>${lab}</span><b class="big ${me&&n>0?'pos':me&&n<0?'neg':''}">${fc(me?Math.abs(n):spent)}</b></p><p class="bal2">${me?`Your share is ${fc(share[me]||0)} of ${fc(spent)} spent`:`${fc(spent)} spent`} across ${S.exp.length} expense${S.exp.length===1?'':'s'}.</p>`;$('#hcard').hidden=false;
+    $('#hcard').innerHTML=`<p class="bal1"><span>${lab}</span><b class="big ${me&&n>0?'pos':me&&n<0?'neg':''}">${fc(me?Math.abs(n):spent)}</b></p><div class="hstats"><div class="hs main"><span>Total spent</span><b>${fc(spent)}</b></div>${me?`<div class="hs"><span>Your share</span><b>${fc(share[me]||0)}</b></div>`:''}<div class="hs"><span>Expenses</span><b>${S.exp.length}</b></div></div>`;$('#hcard').hidden=false;
   }else{paintHome(t);$('#hcard').hidden=true}}
 
 function render(){renderTop();syncBadge();const a=$('#app'),fab=$('#fab');fab.hidden=true;
