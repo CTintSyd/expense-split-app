@@ -88,6 +88,41 @@ document.addEventListener('pointermove',ev=>{if(!SWX)return;const dx=ev.clientX-
 const swEnd=()=>{if(!SWX)return;const s=SWX;s.b.style.transition='';if(s.moved){const open=s.dx<-44;s.li.classList.toggle('open',open);s.b.style.transform=open?'translateX(-88px)':''}
   setTimeout(()=>{if(SWX===s)SWX=null},0)};
 document.addEventListener('pointerup',swEnd);document.addEventListener('pointercancel',swEnd);
+// ---- Several payers on one expense ----
+const paidOf=(e,c)=>{const p=e.payers;if(p&&typeof p==='object'){const w={};for(const k in p){const v=num(p[k]);if(v>0)w[k]=v}if(Object.keys(w).length)return alloc(c,w)}return {[e.paidBy]:c}};
+const nameList=a=>a.length<=1?(a[0]||''):a.length>3?`${a.length} people`:a.slice(0,-1).join(', ')+' and '+a[a.length-1];
+function payLabel(e,me){const ids=e.payers?Object.keys(e.payers).filter(k=>num(e.payers[k])>0):[];if(ids.length<2)return e.paidBy===me?'You':mname(e.paidBy);
+  return nameList(ids.sort((a,b)=>(a===me?-1:b===me?1:0)).map(k=>k===me?'You':mname(k)))}
+function payersBlock(){if(!F.multi)return '';return `<div class="payers"><span class="imlbl">How much each person paid</span>${members().map(m=>`<label class="prow payrow"><span>${esc(m.name)}</span><input class="payin" data-id="${esc(m.id)}" inputmode="decimal" value="${esc(F.payers?.[m.id]??'')}" placeholder="0"><em>${esc(F.cur)}</em></label>`).join('')}<p class="hint" id="f-payleft"></p></div>`}
+function payHint(){const el=$('#f-payleft');if(!el||!F?.multi)return;const a=F.mode==='items'?itemMath().total:num(F.amount),sum=members().reduce((s,m)=>s+Math.max(0,num(F.payers?.[m.id])),0),d=Math.round((a-sum)*100)/100;
+  el.innerHTML=!(a>0)?'Enter the amount first':Math.abs(d)<0.005?'<b>All paid for</b>':d>0?`<b>${esc(money(d,F.cur))}</b> still to assign`:`<b>${esc(money(-d,F.cur))}</b> too much`}
+function payersCheck(amount){if(!F.multi)return {};const w={};for(const m of members()){const v=num(F.payers?.[m.id]);if(v>0)w[m.id]=Math.round(v*100)/100}
+  const ids=Object.keys(w);if(!ids.length)return {err:'Enter how much each person paid.'};const sum=Object.values(w).reduce((s,v)=>s+v,0);
+  if(Math.abs(sum-amount)>0.005)return {err:`The payments add up to ${money(sum,F.cur)}, not ${money(amount,F.cur)}.`};
+  const top=ids.reduce((a,b)=>w[b]>w[a]?b:a,ids[0]);return ids.length>1?{payers:w,top}:{top}}
+// ---- Live exchange rates (European Central Bank via Frankfurter, with a fallback) ----
+const FXC={};
+function fxRate(cur,date){const h=home();if(!cur||cur===h)return Promise.resolve(null);const d=/^\d{4}-\d{2}-\d{2}$/.test(date||'')&&date<today()?date:'latest',k=`${cur}>${h}@${d}`;if(FXC[k])return FXC[k];
+  const p=(async()=>{try{const r=await fetch(`https://api.frankfurter.dev/v1/${d}?base=${cur}&symbols=${h}`);if(r.ok){const j=await r.json(),v=num(j?.rates?.[h]);if(v>0)return {rate:+v.toPrecision(5),date:j.date||today()}}}catch(e){}
+    try{const r=await fetch(`https://open.er-api.com/v6/latest/${cur}`);if(r.ok){const j=await r.json(),v=num(j?.rates?.[h]);if(v>0)return {rate:+v.toPrecision(5),date:today()}}}catch(e){}return null})();
+  FXC[k]=p;p.then(v=>{if(!v)delete FXC[k]});return p}
+async function fxFill(){if(!F||F.cur===home())return;const mine=F,cur=F.cur,date=F.date;const el=$('#f-fx');if(el&&!el.textContent)el.textContent='Checking the live rate…';
+  const r=await fxRate(cur,date);if(F!==mine||F.cur!==cur||F.date!==date)return;const box=$('#f-fx');if(!box)return;if(!r){box.textContent='';return}
+  if(F.rateAuto||!num(F.rate)){F.rate=String(r.rate);F.rateAuto=true;const i=$('#f-rate');if(i)i.value=F.rate;hints()}
+  const lab=!(date<today())?(r.date===today()?'Live rate today':`Latest live rate (${fmtDate(r.date)})`):`Live rate for ${fmtDate(r.date)}`;
+  box.innerHTML=Math.abs(num(F.rate)-r.rate)<1e-9?esc(lab):`${esc(lab)}: ${r.rate} <button type="button" class="btn small" data-act="fx-use" data-r="${r.rate}">Use it</button>`}
+// ---- Settle-up summary for the group chat ----
+function settleText(){const {net}=calc(),plan=settle(net),lines=[`${S.trip.name}: who pays whom`];
+  if(!plan.length)lines.push('Everyone is square. Nothing to pay.');
+  for(const p of plan)lines.push(`• ${mname(p.from)} pays ${mname(p.to)} ${fc(p.c)}`);
+  const tos=[...new Set(plan.map(p=>p.to))].filter(id=>payOf(id));if(tos.length){lines.push('');for(const id of tos)lines.push(`${mname(id)}'s details: ${payOf(id)}`)}
+  const spent=S.exp.reduce((s,e)=>s+Math.max(0,eCents(e)),0);lines.push('',`Total spent ${fc(spent)} across ${S.exp.length} expense${S.exp.length===1?'':'s'}.`);
+  if(typeof tripUrl==='function')lines.push(`Details: ${tripUrl(S.tid)}`);return lines.join('\n')}
+async function copyText(t){try{await navigator.clipboard.writeText(t);return true}catch(e){try{const a=document.createElement('textarea');a.value=t;a.style.position='fixed';a.style.opacity='0';document.body.append(a);a.select();const ok=document.execCommand('copy');a.remove();return ok}catch(e2){return false}}}
+document.addEventListener('click',async ev=>{const b=ev.target.closest?.('[data-act]');if(!b)return;const a=b.dataset.act;
+  if(a==='copysum'){const ok=await copyText(settleText());toast(ok?'Copied. Paste it in your group chat':"Couldn't copy on this device")}
+  else if(a==='sharesum'){try{await navigator.share({text:settleText()})}catch(e){}}
+  else if(a==='fx-use'&&F){F.rate=b.dataset.r;F.rateAuto=true;const i=$('#f-rate');if(i)i.value=F.rate;hints();fxFill()}});
 // ---- Trip colour and cover photo ----
 const TCOL=[['#2f6fde','Blue'],['#e0673a','Orange'],['#2e9d6a','Green'],['#8a5cd1','Purple'],['#d4477a','Pink'],['#14919f','Teal'],['#c48a1c','Gold'],['#47546e','Slate']];
 const tColor=(t,id)=>{if(/^#[0-9a-f]{6}$/i.test(t?.color||''))return t.color;let h=0;for(const c of String(id||''))h=(h*31+c.charCodeAt(0))>>>0;return TCOL[h%TCOL.length][0]};
@@ -124,7 +159,7 @@ function alloc(total,w){const ids=Object.keys(w).filter(k=>w[k]>0),sum=ids.reduc
   for(const k of ids){const x=total*w[k]/sum,f=Math.floor(x);out[k]=f;used+=f;rem.push([x-f,k])}
   rem.sort((a,b)=>b[0]-a[0]);for(let i=0;i<total-used;i++)out[rem[i%rem.length][1]]++;return out}
 function calc(){const net={},share={};let spent=0;members().forEach(m=>{net[m.id]=0;share[m.id]=0});
-  for(const e of S.exp){const c=eCents(e);if(!(c>0))continue;spent+=c;net[e.paidBy]=(net[e.paidBy]||0)+c;const o=alloc(c,weights(e));for(const k in o){net[k]=(net[k]||0)-o[k];share[k]=(share[k]||0)+o[k]}}
+  for(const e of S.exp){const c=eCents(e);if(!(c>0))continue;spent+=c;{const pd=paidOf(e,c);for(const k in pd)net[k]=(net[k]||0)+pd[k]}const o=alloc(c,weights(e));for(const k in o){net[k]=(net[k]||0)-o[k];share[k]=(share[k]||0)+o[k]}}
   for(const p of S.pay){const c=Math.round(num(p.cents));net[p.from]=(net[p.from]||0)+c;net[p.to]=(net[p.to]||0)-c}
   return{net,share,spent}}
 function settle(net){const cr=[],dr=[];for(const k in net){if(net[k]>0)cr.push([k,net[k]]);else if(net[k]<0)dr.push([k,-net[k]])}
@@ -184,17 +219,17 @@ function expView(){if(!S.exp.length)return `<section class="band"><div class="em
   const me=S.me[S.tid],rows=[...S.exp].sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.createdAt||0)-(a.createdAt||0)),days=[];
   for(const e of rows){const d=e.date||'';if(!days.length||days[days.length-1].d!==d)days.push({d,items:[]});days[days.length-1].items.push(e)}
   return `<section class="band"><div class="imbar">${selTop()}${SEL?'':'<button type="button" class="btn small chipb" data-act="imx-open"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 4v10M7.5 9.5L12 14l4.5-4.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>Import</button>'}</div>${days.map(g=>`<h3 class="day"><span>${esc(fmtDate(g.d))}</span><span>${fc(g.items.reduce((s,e)=>s+eCents(e),0))}</span></h3><ul class="list">${g.items.map(e=>{const c=eCents(e),mine=alloc(c,weights(e))[me]||0;
-    return `<li class="swl${SEL?.has(e.id)?' picked':''}"><button type="button" class="xdel" data-act="sw-del" data-id="${esc(e.id)}" tabindex="-1">Delete</button><button type="button" class="exp${SEL?' sel':''}" data-act="edit" data-id="${esc(e.id)}">${SEL?`<span class="selck${SEL.has(e.id)?' on':''}" aria-hidden="true"></span>`:''}${av(e.paidBy)}<span class="ed"><b>${esc(e.desc)}</b><small>${esc(e.paidBy===me?'You':mname(e.paidBy))} paid, ${esc(splitLabel(e))}${e.receipt?', with receipt':''}</small>${e.note?`<small class="enote"><b>Note:</b> ${esc(e.note)}</small>`:''}</span><span class="amt">${fc(c)}${e.cur!==home()?`<small>${esc(money(num(e.amount),e.cur))}</small>`:''}${mine?`<small class="mine">yours ${fc(mine)}</small>`:''}</span></button></li>`}).join('')}</ul>`).join('')}${selBar()}</section>`}
+    return `<li class="swl${SEL?.has(e.id)?' picked':''}"><button type="button" class="xdel" data-act="sw-del" data-id="${esc(e.id)}" tabindex="-1">Delete</button><button type="button" class="exp${SEL?' sel':''}" data-act="edit" data-id="${esc(e.id)}">${SEL?`<span class="selck${SEL.has(e.id)?' on':''}" aria-hidden="true"></span>`:''}${av(e.paidBy)}<span class="ed"><b>${esc(e.desc)}</b><small>${esc(payLabel(e,me))} paid, ${esc(splitLabel(e))}${e.receipt?', with receipt':''}</small>${e.note?`<small class="enote"><b>Note:</b> ${esc(e.note)}</small>`:''}</span><span class="amt">${fc(c)}${e.cur!==home()?`<small>${esc(money(num(e.amount),e.cur))}</small>`:''}${mine?`<small class="mine">yours ${fc(mine)}</small>`:''}</span></button></li>`}).join('')}</ul>`).join('')}${selBar()}</section>`}
 
 function settleView(){const {net}=calc(),me=S.me[S.tid],max=Math.max(1,...Object.values(net).map(Math.abs)),plan=settle(net);
   const who=id=>id===me?'You':mname(id);
   const bals=members().map(m=>{const n=net[m.id]||0;return `<button type="button" class="bal" data-act="who" data-id="${esc(m.id)}" aria-label="See ${esc(m.name)}'s breakdown"><span class="whois">${av(m.id,'sm')}${esc(m.name)}</span><div class="bar"><i class="${n>=0?'pos':'neg'}" style="width:${(Math.abs(n)/max*50).toFixed(1)}%"></i></div><span class="amt ${n>0?'pos':n<0?'neg':''}">${n>0?'+':n<0?'−':''}${fc(Math.abs(n))}</span></button>`}).join('');
   const pays=[...S.pay].sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
   return `<section class="band"><div class="sec"><h2>Balances</h2><p class="hint" style="margin:-8px 0 8px">Green means they're owed money. Red means they owe. Tap someone to see why.</p><div class="card">${bals}</div></div>
-  ${typeView()}<div class="sec"><h2>Payments to settle</h2>${plan.length?`<div class="card">${plan.map(p=>`<div class="pay"><span class="flow">${av(p.from,'sm')}<span class="arr">→</span>${av(p.to,'sm')}<span class="txt"><b>${esc(who(p.from))}</b> ${p.from===me?'pay':'pays'} <b>${esc(who(p.to))}</b></span></span><span class="amt">${fc(p.c)}</span>${payBox(p.to)}<button type="button" class="btn small teal" data-act="paid" data-from="${esc(p.from)}" data-to="${esc(p.to)}" data-c="${p.c}">Mark paid</button></div>`).join('')}</div><p class="hint" style="margin-top:8px">This is the fewest transfers that clears everyone.</p>`:`<div class="empty"><b>Everyone's square.</b></div>`}</div>
+  ${typeView()}<div class="sec"><div class="sech"><h2>Payments to settle</h2>${plan.length?`<span class="sumacts">${navigator.share?'<button type="button" class="btn small chipb" data-act="sharesum">Share</button>':''}<button type="button" class="btn small chipb cpy" data-act="copysum">Copy for group chat</button></span>`:''}</div>${plan.length?`<div class="card">${plan.map(p=>`<div class="pay"><span class="flow">${av(p.from,'sm')}<span class="arr">→</span>${av(p.to,'sm')}<span class="txt"><b>${esc(who(p.from))}</b> ${p.from===me?'pay':'pays'} <b>${esc(who(p.to))}</b></span></span><span class="amt">${fc(p.c)}</span>${payBox(p.to)}<button type="button" class="btn small teal" data-act="paid" data-from="${esc(p.from)}" data-to="${esc(p.to)}" data-c="${p.c}">Mark paid</button></div>`).join('')}</div><p class="hint" style="margin-top:8px">This is the fewest transfers that clears everyone.</p>`:`<div class="empty"><b>Everyone's square.</b></div>`}</div>
   ${pays.length?`<div class="sec"><h2>Payments made</h2><div class="card">${pays.map(p=>`<div class="pay"><span>${esc(who(p.from))} paid ${esc(who(p.to))}<small class="hint" style="display:block">${esc(fmtDate(p.date))}</small></span><span class="amt">${fc(num(p.cents))}</span><button type="button" class="btn small" data-act="unpay" data-id="${esc(p.id)}">Undo</button></div>`).join('')}</div></div>`:''}</section>`}
 
-function usedBy(id){return S.exp.some(e=>e.paidBy===id||weights(e)[id])||S.pay.some(p=>p.from===id||p.to===id)}
+function usedBy(id){return S.exp.some(e=>e.paidBy===id||num(e.payers?.[id])>0||weights(e)[id])||S.pay.some(p=>p.from===id||p.to===id)}
 function tripView(){const t=S.trip,rates=t.rates||{};
   return `<section class="band">${lookView()}<div class="sec"><h2>Invite friends</h2><p class="hint" style="margin:-6px 0 0">Anyone with this link can see and add to the trip. No account needed, so only share it with the group.</p>
     <div class="linkbox"><input id="tlink" readonly value="${esc(tripUrl(S.tid))}" aria-label="Trip link"><button type="button" class="btn teal" data-act="share">${navigator.share?'Share':'Copy'}</button></div>
@@ -208,9 +243,9 @@ function tripView(){const t=S.trip,rates=t.rates||{};
 
 function curOptions(){const r=Object.keys(S.trip.rates||{});return [home(),...r.filter(c=>c!==home()),...CURS.filter(c=>c!==home()&&!r.includes(c))]}
 function openForm(e){delArm=false;const me=S.me[S.tid];
-  if(e)F={id:e.id,desc:e.desc||'',note:e.note||'',amount:String(e.amount??''),cur:e.cur||home(),rate:e.cur!==home()?String(e.rate??''):'',paidBy:e.paidBy,date:e.date||today(),mode:e.split?.mode||'equal',parts:{...(e.split?.parts||{})},items:(e.split?.items||[]).map(it=>({n:it.n||'',p:String(it.p??''),who:[...(it.who||[])],c:it.c||'food',...(Number.isInteger(it.of)?{of:it.of}:{})})),receipt:e.receipt||null,file:null,drop:false,createdBy:e.createdBy,createdAt:e.createdAt,nb:{...(e.split?.book||{})},pd:JSON.parse(JSON.stringify(e.split?.dates||{}))};
+  if(e)F={id:e.id,desc:e.desc||'',note:e.note||'',amount:String(e.amount??''),cur:e.cur||home(),rate:e.cur!==home()?String(e.rate??''):'',paidBy:e.paidBy,multi:!!(e.payers&&Object.keys(e.payers).length>1),payers:e.payers?Object.fromEntries(Object.entries(e.payers).map(([k,v])=>[k,String(v)])):null,date:e.date||today(),mode:e.split?.mode||'equal',parts:{...(e.split?.parts||{})},items:(e.split?.items||[]).map(it=>({n:it.n||'',p:String(it.p??''),who:[...(it.who||[])],c:it.c||'food',...(Number.isInteger(it.of)?{of:it.of}:{})})),receipt:e.receipt||null,file:null,drop:false,createdBy:e.createdBy,createdAt:e.createdAt,nb:{...(e.split?.book||{})},pd:JSON.parse(JSON.stringify(e.split?.dates||{}))};
   else{const last=[...S.exp].sort((a,b)=>(b.createdAt||0)-(a.createdAt||0))[0],cur=last?.cur||home();
-    F={desc:'',note:'',amount:'',cur,rate:cur!==home()?String(S.trip.rates?.[cur]??''):'',paidBy:me,date:today(),mode:'equal',parts:Object.fromEntries(members().map(m=>[m.id,1])),items:[],receipt:null,file:null,drop:false,nb:{},pd:{}}}
+    F={desc:'',note:'',amount:'',rateAuto:true,cur,rate:cur!==home()?String(S.trip.rates?.[cur]??''):'',paidBy:me,date:today(),mode:'equal',parts:Object.fromEntries(members().map(m=>[m.id,1])),items:[],receipt:null,file:null,drop:false,nb:{},pd:{}}}
   if(F.mode==='items'&&F.items.length){const x=Math.round((num(F.amount)-F.items.reduce((t,it)=>t+num(it.p),0))*100)/100;F.extra=x?String(x):''}else F.extra='';
   $('#sheet').hidden=false;renderForm();if(!e)setTimeout(()=>$('#f-amount')?.focus(),50)}
 function closeSheet(){IM=null;$('#sheet').hidden=true;$('#panel').innerHTML='';if(F?.preview)URL.revokeObjectURL(F.preview);F=null}
@@ -299,18 +334,19 @@ function renderForm(){const foreign=F.cur!==home(),modes=[['equal','Equal'],['it
     <div class="amtrow"><label>Amount${F.mode==='items'?' <small>adds up the items</small>':''}<span class="amtw"><span class="asym" aria-hidden="true">${esc(curSym(F.cur))}</span><input id="f-amount" inputmode="decimal" value="${esc(F.amount)}" placeholder="0.00" autocomplete="off"${F.mode==='items'?' readonly class="ro" tabindex="-1"':''}></span></label>
       <label>Currency<select id="f-cur">${curOptions().map(c=>`<option${c===F.cur?' selected':''}>${esc(c)}</option>`).join('')}</select></label></div>
     ${foreign?`<label>Exchange rate <small>1 ${esc(F.cur)} = how many ${esc(home())}?</small><input id="f-rate" inputmode="decimal" value="${esc(F.rate)}" placeholder="e.g. 0.21"></label>`:''}
-    <p class="hint" id="f-conv"></p>
+    ${foreign?'<p class="hint fxh" id="f-fx"></p>':''}<p class="hint" id="f-conv"></p>
     <label>What for?<input id="f-desc" maxlength="80" value="${esc(F.desc)}" placeholder="Dinner, fuel, Airbnb, groceries…"></label>
-    <div class="two"><label>Paid by<select id="f-paid">${members().map(m=>`<option value="${esc(m.id)}"${m.id===F.paidBy?' selected':''}>${esc(m.name)}</option>`).join('')}</select></label>
+    <div class="two"><label>Paid by<select id="f-paid">${members().map(m=>`<option value="${esc(m.id)}"${!F.multi&&m.id===F.paidBy?' selected':''}>${esc(m.name)}</option>`).join('')}<option value="__multi"${F.multi?' selected':''}>Several people…</option></select></label>
       <label>Date<input id="f-date" type="date" value="${esc(F.date)}"></label></div>
+    ${payersBlock()}
     <fieldset><legend class="slg">Split<button type="button" class="qb${F.help?' on':''}" data-act="shelp" aria-label="How splitting works" aria-expanded="${!!F.help}">?</button></legend>${F.help?splitGuide(modes):''}<div class="seg">${modes.map(([k,l])=>`<button type="button" data-act="mode" data-mode="${k}" aria-pressed="${F.mode===k}">${l}</button>`).join('')}</div><p class="mhint">${esc(SPLITHELP[F.mode]?.[1]||'')}</p>${splitEditor()}<p class="hint" id="f-left"></p></fieldset>
     <label>Notes <small>optional</small><textarea id="f-note" rows="2" maxlength="500" placeholder="e.g. Includes Jason's birthday drinks">${esc(F.note||'')}</textarea></label>
     ${receiptBlock()}
     <p class="err" id="f-err"></p>
     <div class="acts">${F.id?`<button type="button" class="btn danger" data-act="del">Delete</button>`:''}<button class="btn primary" id="f-save">${F.id?'Save changes':'Add expense'}</button></div>
-  </form>`;hints();fitGrid()}
+  </form>`;hints();fitGrid();fxFill()}
 function formTotal(){const a=num(F.amount),r=F.cur===home()?1:num(F.rate);return Math.round(a*r*100)}
-function hints(){const conv=$('#f-conv'),left=$('#f-left');if(!conv)return;const a=num(F.amount),tot=formTotal(),foreign=F.cur!==home();
+function hints(){payHint();const conv=$('#f-conv'),left=$('#f-left');if(!conv)return;const a=num(F.amount),tot=formTotal(),foreign=F.cur!==home();
   conv.innerHTML=foreign&&a>0&&num(F.rate)>0?`That's <b>${fc(tot)}</b>`:'';conv.hidden=!conv.innerHTML;
   const vals=members().map(m=>num(F.parts[m.id])),sum=vals.reduce((s,v)=>s+Math.max(0,v),0),cnt=vals.filter(v=>v>0).length;let t='';
   if(F.mode==='items'){const r=itemMath();itemTotals(r);itemEach();itemSummary(r);const cv=v=>F.cur===home()?fc(Math.round(v*100)):esc(money(v,F.cur));
@@ -335,6 +371,7 @@ async function receiptData(file){let b=await shrink(file,1400,.72);if(b.size>480
   const data=await toData(b);if(data.length>900000)throw new Error('the photo is too large');return data}
 async function saveExpense(){if(!F)return;const amount=F.mode==='items'?itemMath().total:num(F.amount),foreign=F.cur!==home(),rate=foreign?num(F.rate):1;
   if(!(amount>0))return ferr('Enter an amount.');if(foreign&&!(rate>0))return ferr(`Enter the ${F.cur} to ${home()} rate.`);
+  const PC=payersCheck(amount);if(PC.err)return ferr(PC.err);if(PC.top)F.paidBy=PC.top;
   if(!members().some(m=>m.id===F.paidBy))return ferr('Choose who paid.');
   let items=null;
   if(F.mode==='items'){const r=itemMath();if(r.bad)return ferr('Each item needs a price and at least one person.');if(!r.isum)return ferr('Add at least one item with a price and a person.');
@@ -354,13 +391,17 @@ async function saveExpense(){if(!F)return;const amount=F.mode==='items'?itemMath
   const me=S.me[S.tid];
   if(photo)put(`trips/${S.tid}/receipts/${id}`,{data:photo});
   else if(F.drop&&F.receipt)del(`trips/${S.tid}/receipts/${id}`);
-  put(`trips/${S.tid}/expenses/${id}`,{desc:F.desc.trim()||'Expense',note:String(F.note||'').trim().slice(0,500),amount,cur:F.cur,rate,paidBy:F.paidBy,date:F.date||today(),split:items?{mode:'items',parts,items}:{mode:F.mode,parts,...(F.mode==='nights'?nightsMeta(parts):{})},receipt:receipt||null,createdBy:F.createdBy||me,createdAt:F.createdAt||Date.now(),updatedAt:Date.now(),updatedBy:me});
+  put(`trips/${S.tid}/expenses/${id}`,{desc:F.desc.trim()||'Expense',note:String(F.note||'').trim().slice(0,500),amount,cur:F.cur,rate,paidBy:F.paidBy,payers:PC.payers||null,date:F.date||today(),split:items?{mode:'items',parts,items}:{mode:F.mode,parts,...(F.mode==='nights'?nightsMeta(parts):{})},receipt:receipt||null,createdBy:F.createdBy||me,createdAt:F.createdAt||Date.now(),updatedAt:Date.now(),updatedBy:me});
   if(foreign&&num(S.trip.rates?.[F.cur])!==rate)tripSave({rates:{...(S.trip.rates||{}),[F.cur]:rate}});
   logAct(`${F.id?'edited':'added'} ${F.desc.trim()||'Expense'} (${money(amount,F.cur)})`);const wasEdit=!!F.id;closeSheet();toast(wasEdit?'Expense updated':'Expense added')}
 function tripSave(patch){return put('trips/'+S.tid,{...S.tripRaw,...patch})}
 // Receipt reading: Gemini (through Firebase AI Logic) turns the photo into line items.
-const AI_MODEL=cfgAll.aiModel||'gemini-3.8-flash';let aiModel=null;
-async function getModel(){if(aiModel)return aiModel;
+// Fast model first; if it times out or finds nothing, try the bigger one.
+const AI_MODELS=[cfgAll.aiModel||'gemini-3.5-flash-lite',cfgAll.aiModelBackup||'gemini-3.8-flash'].filter((v,i,a)=>v&&a.indexOf(v)===i);const aiModels={};
+const AI_GEN=name=>/lite/.test(name)?{}:{thinkingConfig:{thinkingLevel:'low'}};
+const withTimeout=(p,ms)=>Promise.race([p,new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),ms))]);
+async function aiTry(run,ok){let last=null;for(const [i,name] of AI_MODELS.entries()){try{const r=await withTimeout(run(name),i?75000:35000);if(ok(r))return r;last=last||new Error('nothing found')}catch(e){console.warn(name,e);last=e}}throw last||new Error('failed')}
+async function getModel(name){if(aiModels[name])return aiModels[name];
   const {getAI,getGenerativeModel,GoogleAIBackend,Schema}=await import('https://www.gstatic.com/firebasejs/13.4.0/firebase-ai.js');
   const schema=Schema.object({properties:{
     merchant:Schema.string({description:'Shop or venue name'}),
@@ -369,10 +410,10 @@ async function getModel(){if(aiModel)return aiModel;
     items:Schema.array({items:Schema.object({properties:{name:Schema.string(),quantity:Schema.number({description:'Units bought, 1 if not shown'}),price:Schema.number({description:'Line total for all units, as printed'}),type:Schema.string({description:'food, drink or other'}),addonTo:Schema.integer({description:'If this line is an add-on or modifier of another line (oat milk or an extra shot for a latte, extra bacon for a breakfast), the 0-based index of that main item in this items list'})},optionalProperties:['addonTo','type']})}),
     extras:Schema.array({description:'Charges added on top of the items (surcharge, service charge, tip, delivery) as positive amounts, and discounts as negative amounts. Not tax that is already included in item prices.',items:Schema.object({properties:{name:Schema.string(),amount:Schema.number()}})}),
     total:Schema.number({description:'Final amount paid'})},optionalProperties:['date','extras']});
-  aiModel=getGenerativeModel(getAI(S.app,{backend:new GoogleAIBackend()}),{model:AI_MODEL,generationConfig:{responseMimeType:'application/json',responseSchema:schema}});return aiModel}
-async function readReceipt(file){const model=await getModel(),b=await shrink(file,2000,.85),data=(await toData(b)).split(',')[1];
+  aiModels[name]=getGenerativeModel(getAI(S.app,{backend:new GoogleAIBackend()}),{model:name,generationConfig:{responseMimeType:'application/json',responseSchema:schema,...AI_GEN(name)}});return aiModels[name]}
+async function readReceipt(file){const b=await shrink(file,2000,.85),data=(await toData(b)).split(',')[1];
   const prompt='Read this receipt. List every purchased line item with its printed line total. Skip subtotal, total, GST/tax lines that are already included, payment, change and card lines. Put surcharges, service charges, tips and discounts in extras. If a line shows a quantity (like 3 x Beer), give the quantity and the line total. Receipts often print add-ons (milk swaps, extra shots, syrups, extra sides) indented or just under the item they belong to: list them as their own items with addonTo set to that item\'s index.';
-  const res=await model.generateContent([prompt,{inlineData:{data,mimeType:'image/jpeg'}}]);return JSON.parse(res.response.text())}
+  return aiTry(async name=>{const res=await (await getModel(name)).generateContent([prompt,{inlineData:{data,mimeType:'image/jpeg'}}]);return JSON.parse(res.response.text())},r=>Array.isArray(r?.items)&&r.items.some(x=>num(x?.price)>0))}
 function applyScan(r){
   const src=(Array.isArray(r?.items)?r.items:[]).map((it,k)=>({k,name:String(it.name||'Item').trim().slice(0,60),pr:num(it.price),q:num(it.quantity),c:['food','drink','other'].includes(String(it.type||'').toLowerCase())?String(it.type).toLowerCase():'food',of:Number.isInteger(it.addonTo)&&it.addonTo!==k?it.addonTo:null})).filter(x=>x.pr>0);
   const ks=new Map(src.map(x=>[x.k,x]));for(const x of src)if(x.of!=null&&(!ks.has(x.of)||ks.get(x.of).of!=null))x.of=null;
@@ -392,7 +433,7 @@ function applyScan(r){
 async function scanReceipt(){if(!F?.file)return;const mine=F;F.scan='busy';renderForm();
   try{if(!navigator.onLine)throw new Error('offline');const r=await readReceipt(mine.file);if(F!==mine)return;
     if(applyScan(r)){F.scan='done';const dd=dupOf();if(dd)F.scanMsg+=` Heads up: this may already be added as “${dd.desc}” (${fmtDate(dd.date)}).`}else{F.scan='fail';F.scanMsg="Couldn't find any items on this photo."}}
-  catch(e){console.warn(e);if(F!==mine)return;F.scan='fail';F.scanMsg=e.message==='offline'?"No signal, so the receipt can't be read yet.":"Couldn't read the receipt."}
+  catch(e){console.warn(e);if(F!==mine)return;F.scan='fail';F.scanMsg=e.message==='offline'?"No signal, so the receipt can't be read yet.":e.message==='timeout'?"Reading the receipt took too long.":e.message==='nothing found'?"Couldn't find any items on this photo.":"Couldn't read the receipt."}
   renderForm()}
 // Person breakdown: what someone paid, what they owe, and why.
 const fracLabel=n=>({2:'½',3:'⅓',4:'¼',5:'⅕',6:'⅙',8:'⅛'}[n]||`1/${n}`);
@@ -401,14 +442,14 @@ const payBox=id=>{const t=payOf(id);return t?`<span class="payid"><span><small>$
 function showPerson(id){const me=S.me[S.tid],who=x=>x===me?'You':mname(x),cv=(v,c)=>c===home()?fc(Math.round(v*100)):money(v,c),{net}=calc();
   let paid=0,share=0;const rows=[];
   const exps=[...S.exp].sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.createdAt||0)-(a.createdAt||0));
-  for(const e of exps){const c=eCents(e);if(!(c>0))continue;const mine=alloc(c,weights(e))[id]||0,payer=e.paidBy===id;if(payer)paid+=c;share+=mine;if(!mine&&!payer)continue;
+  for(const e of exps){const c=eCents(e);if(!(c>0))continue;const mine=alloc(c,weights(e))[id]||0,pm=paidOf(e,c)[id]||0,payer=pm>0;if(payer)paid+=pm;share+=mine;if(!mine&&!payer)continue;
     let detail='';
     if(mine&&e.split?.mode==='items'&&Array.isArray(e.split.items)){const its=e.split.items,isum=its.reduce((t,x)=>t+num(x.p),0),extra=Math.round((num(e.amount)-isum)*100)/100,asum=its.filter(x=>(x.who||[]).length).reduce((t,x)=>t+num(x.p),0);let myItems=0;const lines=[];
       its.forEach(x=>{const w=x.who||[];if(w.includes(id)){const part=num(x.p)/w.length;myItems+=part;lines.push(`<li${x.of!=null?' class="ao"':''}><span>${x.of!=null?'↳ ':''}${esc(x.n)}${w.length>1?` <small>${fracLabel(w.length)} of ${esc(cv(num(x.p),e.cur))}</small>`:''}</span><span>${esc(cv(part,e.cur))}</span></li>`)}});
       if(extra&&asum>0&&myItems>0)lines.push(`<li class="ex"><span>${extra>0?'Share of extras (surcharge, tip)':'Share of discount'}</span><span>${extra<0?'−':''}${esc(cv(Math.abs(myItems/asum*extra),e.cur))}</span></li>`);
       detail=lines.length?`<ul class="pitems">${lines.join('')}</ul>`:''}
     else if(mine){const n=Object.keys(weights(e)).length,m=e.split?.mode;detail=`<p class="hint pnote">${m==='exact'?'Exact amounts':m==='shares'?'Split by shares':m==='nights'?(()=>{const w=weights(e),t=Object.values(w).reduce((a,v)=>a+v,0);const dd=e.split?.dates?.[id];return `By nights · ${w[id]} night${w[id]===1?'':'s'}${dd?` (${esc(dShort(dd.f))} – ${esc(dShort(dd.t))})`:''} of ${Math.round(t*100)/100} across everyone`})():m==='percent'?'Split by %':n===members().length?`Split equally with everyone (${n})`:`Split equally ${n} ways`}</p>`}
-    rows.push(`<div class="pe"><div class="pe-h"><span><b>${esc(e.desc)}</b><small>${esc(fmtDate(e.date))}${payer?` · ${esc(who(id))} paid ${fc(c)}`:''}${e.cur!==home()?` · ${esc(money(num(e.amount),e.cur))}`:''}</small></span><span class="amt">${mine?fc(mine):'<small>not in it</small>'}</span></div>${detail}</div>`)}
+    rows.push(`<div class="pe"><div class="pe-h"><span><b>${esc(e.desc)}</b><small>${esc(fmtDate(e.date))}${payer?` · ${esc(who(id))} paid ${fc(pm)}`:''}${e.cur!==home()?` · ${esc(money(num(e.amount),e.cur))}`:''}</small></span><span class="amt">${mine?fc(mine):'<small>not in it</small>'}</span></div>${detail}</div>`)}
   let sent=0,recv=0;for(const p of S.pay){if(p.from===id)sent+=num(p.cents);if(p.to===id)recv+=num(p.cents)}
   const n=net[id]||0,plan=settle(net).filter(p=>p.from===id||p.to===id);
   $('#sheet').hidden=false;const P=$('#panel');
@@ -476,7 +517,8 @@ document.addEventListener('click',async ev=>{
   else if(a==='rmrate'){const c=b.dataset.c,r={...S.trip.rates};delete r[c];tripSave({rates:r})}
 });
 document.addEventListener('input',ev=>{if(!F)return;const t=ev.target;
-  if(t.id==='f-amount')F.amount=t.value;else if(t.id==='f-rate')F.rate=t.value;else if(t.id==='f-desc')F.desc=t.value;else if(t.id==='f-note')F.note=t.value;else if(t.id==='f-date')F.date=t.value;
+  if(t.id==='f-amount')F.amount=t.value;else if(t.id==='f-rate'){F.rate=t.value;F.rateAuto=false}else if(t.id==='f-desc')F.desc=t.value;else if(t.id==='f-note')F.note=t.value;else if(t.id==='f-date'){F.date=t.value;fxFill()}
+  else if(t.classList.contains('payin')){F.payers=F.payers||{};F.payers[t.dataset.id]=t.value}
   else if(t.classList.contains('pin')){F.parts[t.dataset.id]=t.value;if(F.pd?.[t.dataset.id]){delete F.pd[t.dataset.id];const r=t.closest('.nper');r?.classList.remove('open');r?.querySelector('.pdr')?.remove();r?.querySelector('.nbad')?.remove();r?.querySelector('.nds')?.remove();const c=r?.querySelector('.ncal');if(c){c.classList.remove('on');c.setAttribute('aria-pressed','false')}}}
   else if(t.id==='f-nfrom'||t.id==='f-nto'){F.nb[t.id==='f-nfrom'?'f':'t']=t.value;const n=nDiff(F.nb.f,F.nb.t),h=$('#f-nbh');if(h)h.textContent=n>0?`${n} night${n===1?'':'s'}`:F.nb.f&&F.nb.t?nWarn(F.nb.f,F.nb.t):'';h.classList.toggle('nbadt',!(n>0));if(t.id==='f-nfrom'){const e=$('#f-nto');if(e)e.min=t.value}if(n>0){const l=$('#f-nall');if(l)l.value=n}}
   else if(t.classList.contains('pdf')||t.classList.contains('pdt')){const id=t.dataset.id,d=F.pd[id]||(F.pd[id]={f:'',t:''});d[t.classList.contains('pdf')?'f':'t']=t.value;if(t.classList.contains('pdf')){const e=t.closest('.nper')?.querySelector('.pdt');if(e)e.min=t.value}const n=nDiff(d.f,d.t),r=t.closest('.nper');r?.querySelector('.nbad')?.remove();
@@ -484,8 +526,8 @@ document.addEventListener('input',ev=>{if(!F)return;const t=ev.target;
     else{r?.querySelector('.nds')?.remove();if(d.f&&d.t)r?.querySelector('.pdr')?.insertAdjacentHTML('afterend',`<p class="hint nbad">${esc(nWarn(d.f,d.t))}</p>`)}}
   else if(t.classList.contains('iname'))F.items[+t.dataset.i].n=t.value;else if(t.classList.contains('iprice'))F.items[+t.dataset.i].p=t.value;else if(t.classList.contains('iextra'))F.extra=t.value;else return;hints()});
 document.addEventListener('change',ev=>{const t=ev.target;if(!F)return;
-  if(t.id==='f-cur'){F.cur=t.value;F.rate=F.cur!==home()?String(S.trip.rates?.[F.cur]??''):'';renderForm()}
-  else if(t.id==='f-paid')F.paidBy=t.value;
+  if(t.id==='f-cur'){F.cur=t.value;F.rate=F.cur!==home()?String(S.trip.rates?.[F.cur]??''):'';F.rateAuto=true;renderForm()}
+  else if(t.id==='f-paid'){if(t.value==='__multi'){F.multi=true;if(!F.payers||!Object.keys(F.payers).length)F.payers={[F.paidBy]:F.amount||''}}else{F.multi=false;F.paidBy=t.value}renderForm()}
   else if(t.classList.contains('iprice')){const v=fmtP(t.value);t.value=v;F.items[+t.dataset.i].p=v}
   else if(t.classList.contains('iextra')){const v=fmtP(t.value);t.value=v;F.extra=v}
   else if(t.id==='f-file'&&t.files?.[0]){F.file=t.files[0];F.preview=URL.createObjectURL(F.file);scanReceipt()}});
@@ -604,6 +646,7 @@ const IM_PROMPT=()=>`This image shows a list of bank or card transactions (a pho
 function imMoney(v){return IM.cur===home()?fc(Math.round(v*100)):money(v,IM.cur)}
 function imSel(){return IM.rows.filter(r=>r.on&&num(r.amount)>0)}
 function imRender(){if(!IM)return;const p=$('#panel');if(!p)return;const ms=members(),fx=IM.cur!==home();
+  if(fx&&!IM.rate){const c=IM.cur;fxRate(c,today()).then(r=>{if(r&&IM&&IM.cur===c&&!IM.rate){IM.rate=String(r.rate);imRender()}})}
   const head=`<div class="ph"><h2>Import expenses</h2><button type="button" class="x" data-act="close" aria-label="Close">×</button></div>`;
   const pick=`<div class="imdrop"><p>Add a <b>screenshot or photo</b> of a transaction list, or a <b>CSV or Excel file</b> exported from your bank. You choose which ones to add before anything is saved.</p>
     <label class="btn primary file">Photo or screenshot<input type="file" class="imfile" accept="image/*" multiple></label>
@@ -653,10 +696,10 @@ document.addEventListener('input',ev=>{if(!IM)return;const t=ev.target,r=IM.rows
   if(t.classList.contains('imdesc')&&r)r.desc=t.value;else if(t.classList.contains('imamt')&&r){r.amount=t.value;imFoot()}else if(t.id==='im-rate')IM.rate=t.value});
 
 const imPut=async(path,body)=>{put(path,body)};
-let txModel=null;
-async function imReadPhoto(file){if(!txModel){const {getAI,getGenerativeModel,GoogleAIBackend,Schema}=await import('https://www.gstatic.com/firebasejs/13.4.0/firebase-ai.js');
+const txModels={};
+async function txModelFor(name){if(!txModels[name]){const {getAI,getGenerativeModel,GoogleAIBackend,Schema}=await import('https://www.gstatic.com/firebasejs/13.4.0/firebase-ai.js');
     const schema=Schema.object({properties:{currency:Schema.string({description:'ISO 4217 code such as AUD, JPY, CNY'}),transactions:Schema.array({items:Schema.object({properties:{date:Schema.string({description:'YYYY-MM-DD or empty'}),description:Schema.string(),amount:Schema.number({description:'Positive amount'}),direction:Schema.string({description:'out or in'})}})})}});
-    txModel=getGenerativeModel(getAI(S.app,{backend:new GoogleAIBackend()}),{model:AI_MODEL,generationConfig:{responseMimeType:'application/json',responseSchema:schema}})}
-  const b=await shrink(file,2400,.85),data=(await toData(b)).split(',')[1];
-  const res=await txModel.generateContent([IM_PROMPT(),{inlineData:{data,mimeType:'image/jpeg'}}]);return imPhotoNorm(JSON.parse(res.response.text()))}
+    txModels[name]=getGenerativeModel(getAI(S.app,{backend:new GoogleAIBackend()}),{model:name,generationConfig:{responseMimeType:'application/json',responseSchema:schema,...AI_GEN(name)}})}return txModels[name]}
+async function imReadPhoto(file){const b=await shrink(file,2400,.85),data=(await toData(b)).split(',')[1];
+  return aiTry(async name=>{const res=await (await txModelFor(name)).generateContent([IM_PROMPT(),{inlineData:{data,mimeType:'image/jpeg'}}]);return imPhotoNorm(JSON.parse(res.response.text()))},r=>r.tx.length>0)}
 
