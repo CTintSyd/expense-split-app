@@ -707,6 +707,13 @@ body.selmode .fab{display:none!important}
 .srow .sits{display:grid;gap:6px}
 .srow:not(.open) .sits{display:none}
 .sitl{display:flex;flex-wrap:wrap;gap:4px 6px}
+/* History and export */
+.hist{background:var(--card);border-radius:12px;padding:10px 14px}
+.hist summary{cursor:pointer;font-weight:600}
+.hl{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:10px;font-size:14px}
+.hl>li{border-left:2px solid var(--line);padding-left:10px}
+.hl .hw{color:var(--muted);font-size:13px}
+.hl ul{margin:2px 0 0;padding-left:16px;color:var(--ink)}
 </style></head><body>
 <div class="sync" id="sync" hidden></div>
 <header class="top" id="top"></header>

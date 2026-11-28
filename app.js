@@ -128,6 +128,51 @@ function syncX(){const t=Math.round((F?.xs||[]).reduce((s,x)=>s+num(x.a),0)*100)
 document.addEventListener('click',ev=>{const b=ev.target.closest?.('[data-act]');if(!b||!F)return;const a=b.dataset.act;
   if(a==='xadd'){F.xs=F.xs||[];F.xs.push({n:'',a:''});renderForm();const ns=document.querySelectorAll('.xname');ns[ns.length-1]?.focus()}
   else if(a==='xdel'){F.xs.splice(+b.dataset.j,1);syncX();renderForm()}});
+// ---- Edit history for each expense ----
+const MODEN={equal:'equally',items:'by items',exact:'by amounts',nights:'by nights',percent:'by %',shares:'by shares'};
+const whenTxt=ms=>{try{return new Date(ms).toLocaleString('en-AU',{weekday:'short',day:'numeric',month:'short',hour:'numeric',minute:'2-digit'})}catch(e){return ''}};
+const payTxt=e=>{const p=e?.payers&&Object.keys(e.payers).filter(k=>num(e.payers[k])>0);return p&&p.length>1?p.map(k=>`${mname(k)} ${money(num(e.payers[k]),e.cur)}`).join(', '):mname(e?.paidBy)};
+function histDiff(o,n){const ch=[];if(!o)return ch;
+  if((o.desc||'')!==(n.desc||''))ch.push(`Description “${o.desc||''}” → “${n.desc||''}”`);
+  if(num(o.amount)!==num(n.amount)||o.cur!==n.cur)ch.push(`Amount ${money(num(o.amount),o.cur)} → ${money(num(n.amount),n.cur)}`);
+  else if(o.cur!==home()&&num(o.rate)!==num(n.rate))ch.push(`Exchange rate ${num(o.rate)} → ${num(n.rate)}`);
+  if(payTxt(o)!==payTxt(n))ch.push(`Paid by ${payTxt(o)} → ${payTxt(n)}`);
+  if((o.date||'')!==(n.date||''))ch.push(`Date ${fmtDate(o.date)} → ${fmtDate(n.date)}`);
+  const om=o.split?.mode||'equal',nm=n.split?.mode||'equal';
+  if(om!==nm)ch.push(`Split ${MODEN[om]||om} → ${MODEN[nm]||nm}`);
+  else if(nm==='items'){if(JSON.stringify(o.split?.items||[])!==JSON.stringify(n.split?.items||[]))ch.push('Items or who had them changed');if(JSON.stringify(o.split?.extras||[])!==JSON.stringify(n.split?.extras||[]))ch.push('Extra charges changed')}
+  else{const a=Object.keys(weights(o)),b=Object.keys(weights(n)),add=b.filter(x=>!a.includes(x)),rem=a.filter(x=>!b.includes(x));
+    if(add.length)ch.push(`Added ${add.map(mname).join(', ')} to the split`);if(rem.length)ch.push(`Took ${rem.map(mname).join(', ')} out of the split`);
+    if(!add.length&&!rem.length&&nm!=='equal'&&JSON.stringify(o.split?.parts||{})!==JSON.stringify(n.split?.parts||{}))ch.push(nm==='nights'?'Nights changed':nm==='percent'?'Percentages changed':'Amounts changed')}
+  if((o.note||'')!==(n.note||''))ch.push(!o.note?'Note added':!n.note?'Note removed':'Note changed');
+  if(!!o.receipt!==!!n.receipt)ch.push(n.receipt?'Receipt added':'Receipt removed');
+  return ch}
+function withHist(body){if(!F?.id)return body;const old=S.exp.find(x=>x.id===F.id),prev=Array.isArray(old?.hist)?old.hist:[],ch=histDiff(old,body);
+  body.hist=ch.length?[...prev,{t:Date.now(),by:S.me[S.tid]||null,ch}].slice(-30):prev;return body}
+function histBlock(){if(!F?.id)return '';const e=S.exp.find(x=>x.id===F.id);if(!e)return '';const hs=Array.isArray(e.hist)?[...e.hist].reverse():[];
+  const li=[];for(const h of hs)li.push(`<li><b>${esc(mname(h.by)||'Someone')}</b> <span class="hw">${esc(whenTxt(h.t))}</span><ul>${(h.ch||[]).map(c=>`<li>${esc(c)}</li>`).join('')}</ul></li>`);
+  if(!hs.length&&num(e.updatedAt)>num(e.createdAt)+2000)li.push(`<li><b>${esc(mname(e.updatedBy)||'Someone')}</b> <span class="hw">${esc(whenTxt(e.updatedAt))}</span><ul><li>Edited (details weren't recorded before history was added)</li></ul></li>`);
+  li.push(`<li><b>${esc(mname(e.createdBy)||'Someone')}</b> <span class="hw">${esc(whenTxt(e.createdAt))}</span><ul><li>Added this expense</li></ul></li>`);
+  const n=hs.length;return `<details class="hist"><summary>History${n?` (${n} change${n===1?'':'s'})`:''}</summary><ul class="hl">${li.join('')}</ul></details>`}
+// ---- Export all expenses as a CSV file ----
+function csvCell(v){v=v==null?'':String(v);return /[",\n\r]/.test(v)?`"${v.replace(/"/g,'""')}"`:v}
+function exportCSV(){const ms=members(),h=home(),c2=c=>(c/100).toFixed(2),rows=[];
+  rows.push(['Date','Description','Note','Paid by','Amount','Currency','Exchange rate',`Amount (${h})`,'Split',...ms.map(m=>`${m.name} share (${h})`)]);
+  const tp={},ts={};const exps=[...S.exp].sort((a,b)=>(a.date||'').localeCompare(b.date||'')||(a.createdAt||0)-(b.createdAt||0));
+  for(const e of exps){const c=eCents(e);if(!(c>0))continue;const sh=alloc(c,weights(e)),pd=paidOf(e,c);for(const k in pd)tp[k]=(tp[k]||0)+pd[k];for(const k in sh)ts[k]=(ts[k]||0)+sh[k];
+    rows.push([e.date||'',e.desc||'',e.note||'',payTxt(e),num(e.amount).toFixed(curDp(e.cur||h)),e.cur||h,e.cur&&e.cur!==h?num(e.rate):'',c2(c),MODEN[e.split?.mode||'equal']||'',...ms.map(m=>sh[m.id]?c2(sh[m.id]):'')])}
+  const pays=[...S.pay].sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+  if(pays.length){rows.push([]);rows.push(['Payments made']);for(const p of pays)rows.push([p.date||'',`${mname(p.from)} paid ${mname(p.to)}`,'','','','','',c2(num(p.cents))])}
+  const {net}=calc();rows.push([]);
+  rows.push(['','Total paid','','','','','','','',...ms.map(m=>c2(tp[m.id]||0))]);
+  rows.push(['','Total share','','','','','','','',...ms.map(m=>c2(ts[m.id]||0))]);
+  rows.push(['','Balance after payments (+ is owed, − owes)','','','','','','','',...ms.map(m=>c2(net[m.id]||0))]);
+  const csv='﻿'+rows.map(r=>r.map(csvCell).join(',')).join('\r\n'),name=(S.trip.name||'trip').replace(/[^\w\- ]+/g,'').trim().replace(/\s+/g,'-')+'-expenses.csv';
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+  try{const u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000);toast('Spreadsheet downloaded')}
+  catch(e){toast("Couldn't download on this device")}}
+const exportView=()=>`<div class="sec"><h2>Export</h2><p class="hint" style="margin:-6px 0 10px">Download every expense as a CSV file that opens in Excel, Numbers or Google Sheets. It includes each person's share and the totals.</p><button type="button" class="btn" data-act="csv">Download spreadsheet (CSV)</button></div>`;
+document.addEventListener('click',ev=>{const b=ev.target.closest?.('[data-act="csv"]');if(b&&S.trip)exportCSV()});
 // ---- Trip colour and cover photo ----
 const TCOL=[['#2f6fde','Blue'],['#e0673a','Orange'],['#2e9d6a','Green'],['#8a5cd1','Purple'],['#d4477a','Pink'],['#14919f','Teal'],['#c48a1c','Gold'],['#47546e','Slate']];
 const tColor=(t,id)=>{if(/^#[0-9a-f]{6}$/i.test(t?.color||''))return t.color;let h=0;for(const c of String(id||''))h=(h*31+c.charCodeAt(0))>>>0;return TCOL[h%TCOL.length][0]};
@@ -244,7 +289,7 @@ function tripView(){const t=S.trip,rates=t.rates||{};
     <p class="hint" style="margin-top:10px">You're <b>${esc(mname(S.me[S.tid]))}</b>. <button type="button" class="btn small" data-act="notme">Not you?</button></p></div>
   ${activityView()}<div class="sec"><h2>Currencies</h2><p class="hint" style="margin:-6px 0 10px">Everything settles in <b>${esc(home())}</b>. Rates are saved on each expense, so changing a rate here only affects new expenses.</p>
     ${Object.keys(rates).length?`<div class="card">${Object.keys(rates).map(c=>`<div class="rrow"><b>1 ${esc(c)} =</b><input id="rt-${esc(c)}" inputmode="decimal" value="${esc(rates[c])}" aria-label="${esc(c)} rate"><button type="button" class="btn small" data-act="saverate" data-c="${esc(c)}">Save</button>${S.exp.some(e=>e.cur===c)?'<span></span>':`<button type="button" class="btn small danger" data-act="rmrate" data-c="${esc(c)}">Remove</button>`}</div>`).join('')}</div>`:'<p class="muted">No foreign currencies yet. Pick one when adding an expense, or add it here.</p>'}
-    <form id="addrate" class="inline3" style="margin-top:10px"><select name="c" aria-label="Currency">${CURS.filter(c=>c!==home()&&!rates[c]).map(c=>`<option>${c}</option>`).join('')}</select><input name="r" inputmode="decimal" placeholder="${esc(home())} per 1 unit" required aria-label="Rate"><button class="btn">Add</button></form></div></section>`}
+    <form id="addrate" class="inline3" style="margin-top:10px"><select name="c" aria-label="Currency">${CURS.filter(c=>c!==home()&&!rates[c]).map(c=>`<option>${c}</option>`).join('')}</select><input name="r" inputmode="decimal" placeholder="${esc(home())} per 1 unit" required aria-label="Rate"><button class="btn">Add</button></form></div>${exportView()}</section>`}
 
 function curOptions(){const r=Object.keys(S.trip.rates||{});return [home(),...r.filter(c=>c!==home()),...CURS.filter(c=>c!==home()&&!r.includes(c))]}
 function openForm(e){delArm=false;const me=S.me[S.tid];
@@ -347,6 +392,7 @@ function renderForm(){const foreign=F.cur!==home(),modes=[['equal','Equal'],['it
     <fieldset><legend class="slg">Split<button type="button" class="qb${F.help?' on':''}" data-act="shelp" aria-label="How splitting works" aria-expanded="${!!F.help}">?</button></legend>${F.help?splitGuide(modes):''}<div class="seg">${modes.map(([k,l])=>`<button type="button" data-act="mode" data-mode="${k}" aria-pressed="${F.mode===k}">${l}</button>`).join('')}</div><p class="mhint">${esc(SPLITHELP[F.mode]?.[1]||'')}</p>${splitEditor()}<p class="hint" id="f-left"></p></fieldset>
     <label>Notes <small>optional</small><textarea id="f-note" rows="2" maxlength="500" placeholder="e.g. Includes Jason's birthday drinks">${esc(F.note||'')}</textarea></label>
     ${receiptBlock()}
+    ${histBlock()}
     <p class="err" id="f-err"></p>
     <div class="acts">${F.id?`<button type="button" class="btn danger" data-act="del">Delete</button>`:''}<button class="btn primary" id="f-save">${F.id?'Save changes':'Add expense'}</button></div>
   </form>`;hints();fitGrid();fxFill()}
@@ -396,7 +442,7 @@ async function saveExpense(){if(!F)return;const amount=F.mode==='items'?itemMath
   const me=S.me[S.tid];
   if(photo)put(`trips/${S.tid}/receipts/${id}`,{data:photo});
   else if(F.drop&&F.receipt)del(`trips/${S.tid}/receipts/${id}`);
-  put(`trips/${S.tid}/expenses/${id}`,{desc:F.desc.trim()||'Expense',note:String(F.note||'').trim().slice(0,500),amount,cur:F.cur,rate,paidBy:F.paidBy,payers:PC.payers||null,date:F.date||today(),split:items?{mode:'items',parts,items,...(F.xs?.some(x=>num(x.a))?{extras:F.xs.filter(x=>num(x.a)).map(x=>({n:(x.n||'').trim()||'Extra',a:Math.round(num(x.a)*100)/100}))}:{})}:{mode:F.mode,parts,...(F.mode==='nights'?nightsMeta(parts):{})},receipt:receipt||null,createdBy:F.createdBy||me,createdAt:F.createdAt||Date.now(),updatedAt:Date.now(),updatedBy:me});
+  put(`trips/${S.tid}/expenses/${id}`,withHist({desc:F.desc.trim()||'Expense',note:String(F.note||'').trim().slice(0,500),amount,cur:F.cur,rate,paidBy:F.paidBy,payers:PC.payers||null,date:F.date||today(),split:items?{mode:'items',parts,items,...(F.xs?.some(x=>num(x.a))?{extras:F.xs.filter(x=>num(x.a)).map(x=>({n:(x.n||'').trim()||'Extra',a:Math.round(num(x.a)*100)/100}))}:{})}:{mode:F.mode,parts,...(F.mode==='nights'?nightsMeta(parts):{})},receipt:receipt||null,createdBy:F.createdBy||me,createdAt:F.createdAt||Date.now(),updatedAt:Date.now(),updatedBy:me}));
   if(foreign&&num(S.trip.rates?.[F.cur])!==rate)tripSave({rates:{...(S.trip.rates||{}),[F.cur]:rate}});
   logAct(`${F.id?'edited':'added'} ${F.desc.trim()||'Expense'} (${money(amount,F.cur)})`);const wasEdit=!!F.id;closeSheet();toast(wasEdit?'Expense updated':'Expense added')}
 function tripSave(patch){return put('trips/'+S.tid,{...S.tripRaw,...patch})}
