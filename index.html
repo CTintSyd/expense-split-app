@@ -782,6 +782,22 @@ body.selmode .fab{display:none!important}
 .trip .tico{grid-row:1/span 3!important;align-self:center}
 .trip .cur{grid-row:1/span 3!important;align-self:center}
 .trip .ttot b{font-size:14px!important;display:inline!important}
+/* Help and FAQ */
+.hbtn{position:absolute;z-index:3;top:max(12px,env(safe-area-inset-top));right:max(5vw,16px);width:34px;height:34px;border-radius:50%;border:0;background:rgba(0,0,0,.3);color:#fff;font-size:17px;font-weight:700;cursor:pointer;display:grid;place-items:center;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.hbtn:focus-visible{outline:2px solid #fff;outline-offset:2px}
+.faqov{position:fixed;inset:0;z-index:60;background:rgba(8,15,35,.5);display:flex;align-items:flex-end;justify-content:center}
+.faqp{background:var(--bg);width:100%;max-width:620px;max-height:90vh;overflow-y:auto;border-radius:14px 14px 0 0;padding:10px max(4vw,18px) calc(24px + env(safe-area-inset-bottom))}
+.faqp .ph{position:sticky;top:-10px;background:var(--bg);z-index:2;display:flex;justify-content:space-between;align-items:center;padding:8px 0 10px;border-bottom:.5px solid var(--line);margin-bottom:6px}
+.fqg{font-size:14px;font-weight:600;color:var(--teal);margin:18px 2px 8px}
+.fq{background:var(--card);border-radius:12px;padding:12px 14px;margin-bottom:8px}
+.fq summary{list-style:none;cursor:pointer;font-weight:600;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center}
+.fq summary::-webkit-details-marker{display:none}
+.fq summary::after{content:"";width:8px;height:8px;border:solid var(--muted);border-width:0 2px 2px 0;transform:rotate(45deg);margin-top:-4px;transition:transform .2s}
+.fq[open] summary::after{transform:rotate(-135deg);margin-top:4px}
+.fq p{margin:8px 0 2px;color:var(--ink);line-height:1.45;font-size:15px}
+.fqend{text-align:center;margin-top:14px}
+body.faqopen{overflow:hidden}
+.sgmore{border:0;background:none;color:var(--teal);font-weight:600;font-size:14px;padding:8px 0 2px;cursor:pointer}
 </style></head><body>
 <div class="sync" id="sync" hidden></div>
 <header class="top" id="top"></header>
