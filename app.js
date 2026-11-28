@@ -231,6 +231,15 @@ function collapseTrip(){if(S.tab!=='trip')return;document.querySelectorAll('#app
 const TABIC={exp:'<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg>',
   settle:'<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h14M14 4l4 4-4 4"/><path d="M20 16H6M10 12l-4 4 4 4"/></svg>',
   trip:'<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>'};
+// ---- Total spent and your share in the trip list ----
+var TOT=(()=>{try{return JSON.parse(localStorage.getItem('es-tot')||'{}')||{}}catch(e){return {}}})(),TOTQ={};
+const saveTot=()=>{try{localStorage.setItem('es-tot',JSON.stringify(TOT))}catch(e){}};
+function totFrom(exps,hc,me){let spent=0,share=0;for(const e of exps){const c=Math.round(num(e.amount)*(e.cur===hc?1:num(e.rate))*100);if(!(c>0))continue;spent+=c;if(me)share+=alloc(c,weights(e))[me]||0}return {spent,share}}
+function noteTot(){if(!S.tid||!S.trip)return;const {share,spent}=calc(),me=S.me[S.tid];TOT[S.tid]={spent,share:me?share[me]||0:0,hc:home()};saveTot()}
+function totHtml(id,hc){if(!TOTQ[id]){TOTQ[id]=1;totFetch(id).then(ex=>{if(!Array.isArray(ex))return;const v={...totFrom(ex,hc,S.me[id]),hc};const o=TOT[id];if(!o||o.spent!==v.spent||o.share!==v.share){TOT[id]=v;saveTot();if(!S.tid)render()}}).catch(()=>{})}
+  const t=TOT[id];if(!t)return '';const m=c=>money(c/100,t.hc||hc,true);return `<span class="ttot"><span>Total <b>${esc(m(t.spent))}</b></span>${S.me[id]?`<span>Your share <b>${esc(m(t.share))}</b></span>`:''}</span>`}
+function totFetch(id){return new Promise(res=>{let last=null,done=false,un=null;const fin=v=>{if(done)return;done=true;res(v);setTimeout(()=>un&&un(),0)};
+  try{un=onSnapshot(collection(S.fs,`trips/${id}/expenses`),{includeMetadataChanges:true},s=>{last=s.docs.map(d=>d.data());if(!s.metadata.fromCache)fin(last)},()=>fin(last))}catch(e){fin(null)}setTimeout(()=>fin(last),8000)})}
 // ---- Trip colour and cover photo ----
 const TCOL=[['#2f6fde','Blue'],['#e0673a','Orange'],['#2e9d6a','Green'],['#8a5cd1','Purple'],['#d4477a','Pink'],['#14919f','Teal'],['#c48a1c','Gold'],['#47546e','Slate']];
 const tColor=(t,id)=>{if(/^#[0-9a-f]{6}$/i.test(t?.color||''))return t.color;let h=0;for(const c of String(id||''))h=(h*31+c.charCodeAt(0))>>>0;return TCOL[h%TCOL.length][0]};
@@ -240,7 +249,7 @@ function coverFor(tid,t){if(!t?.cover)return '';const c=COV[tid];if(c&&c.at===t.
     covGet(tid).then(d=>{COV[tid]={at:want,data:d||''};if(S.tid===tid){renderTop();if(S.tab==='trip')render()}}).catch(()=>{COV[tid]={at:want,data:''}})}
   return COV[tid].data}
 const tileFor=(id,t)=>`<span class="tico" style="--tc:${tColor(t,id)}" aria-hidden="true">${t?.thumb?`<img src="${esc(t.thumb)}" alt="">`:SCN[t?.scene]?scnSvg(t.scene,'tsvg'):esc((String(t?.name||'?').trim()[0]||'?').toUpperCase())}</span>`;
-function paintTop(el,back){noteLast();setAccent(tripAccent(S.trip,S.tid));const c=tColor(S.trip,S.tid),cv=coverFor(S.tid,S.trip),sc=!cv&&SCN[S.trip.scene]?S.trip.scene:'';el.className='top tm'+(cv||sc?' hasimg':'');el.style.setProperty('--tc',c);
+function paintTop(el,back){noteLast();noteTot();setAccent(tripAccent(S.trip,S.tid));const c=tColor(S.trip,S.tid),cv=coverFor(S.tid,S.trip),sc=!cv&&SCN[S.trip.scene]?S.trip.scene:'';el.className='top tm'+(cv||sc?' hasimg':'');el.style.setProperty('--tc',c);
   el.innerHTML=`${cv?`<img class="covimg" src="${cv}" alt="">`:sc?scnSvg(sc):''}<div class="topin"><a class="back" href="${back}">All trips</a><h1>${esc(S.trip.name)}</h1></div>`}
 var LOOKOPEN=false;document.addEventListener('toggle',e=>{if(e.target?.classList?.contains('looksec'))LOOKOPEN=e.target.open},true);
 function lookView(){const t=S.trip,c=tColor(t,S.tid),cv=coverFor(S.tid,t),w=S.canWrite!==false,sc=!cv&&SCN[t.scene]?t.scene:'';
@@ -311,7 +320,7 @@ function render(){renderTop();syncBadge();const a=$('#app'),fab=$('#fab');fab.hi
 
 const pRow=first=>`<li><input name="members" maxlength="30" placeholder="${first?'Your name':'Name'}" autocomplete="off" aria-label="${first?'Your name':'Person'}"><button type="button" class="x" data-act="prm" aria-label="Remove">×</button></li>`;
 function addPerson(after){const ul=$('#plist');if(!ul)return;const t=document.createElement('template');t.innerHTML=pRow(false);const li=t.content.firstChild;after?after.after(li):ul.append(li);li.querySelector('input').focus()}
-function homeView(){const list=Object.entries(S.recent).sort((a,b)=>(b[1].at||0)-(a[1].at||0)).map(([id,t])=>`<a class="trip" href="?trip=${esc(id)}">${tileFor(id,t)}<b>${esc(t.name||'Trip')}</b><span>${esc(t.people||'')}</span><span class="cur">${esc(t.home||'')}${lastHtml(id,t.created)}</span></a>`).join('');
+function homeView(){const list=Object.entries(S.recent).sort((a,b)=>(b[1].at||0)-(a[1].at||0)).map(([id,t])=>`<a class="trip" href="?trip=${esc(id)}">${tileFor(id,t)}<b>${esc(t.name||'Trip')}</b><span>${esc(t.people||'')}</span>${totHtml(id,t.home)}<span class="cur">${esc(t.home||'')}${lastHtml(id,t.created)}</span></a>`).join('');
   return `<section class="band"><h2>Your trips, groups and expenses</h2>${list||'<p class="muted">Trips, groups and expenses you open on this phone show up here.</p>'}
     <form id="join" class="inline" style="margin-top:12px"><input name="code" placeholder="Paste a trip link" aria-label="Trip link" autocomplete="off"><button class="btn">Open</button></form></section>
   <section class="band"><h2>Start a trip, group or expense</h2><form id="newtrip" class="stackf">
